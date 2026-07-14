@@ -39,8 +39,7 @@
     <form method="post" action="/disposal-admin/cancel/" id="cancelForm">
         {{ csrf_input }}
         <div class="d-flex align-items-center gap-2 mb-3">
-            <button type="submit" class="btn btn-sm btn-danger"
-                onclick="return confirm('선택한 항목의 폐기를 취소할까요?\n재고는 0으로 초기화됩니다.')">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmCancel()">
                 폐기 취소
             </button>
             <span class="text-muted small" id="selectedCount">선택된 항목: 0개</span>
@@ -69,7 +68,8 @@
                     {% for item in items %}
                     <tr>
                         <td>
-                            <input type="checkbox" class="form-check-input row-check" name="item_ids" value="{{ item.id }}">
+                            <input type="checkbox" class="form-check-input row-check" name="item_ids" value="{{ item.id }}"
+                                data-expiry="{{ item.expiry_date }}" data-name="{{ item.item_name }} (Lot {{ item.lot_no }})">
                         </td>
                         <td><span class="part-pill">{{ item.part_label }}</span></td>
                         <td>{{ item.item_code }}</td>
@@ -104,6 +104,42 @@ document.querySelectorAll('.row-check').forEach(cb => cb.addEventListener('chang
 function updateCount() {
     var n = document.querySelectorAll('.row-check:checked').length;
     document.getElementById('selectedCount').textContent = '선택된 항목: ' + n + '개';
+}
+function confirmCancel() {
+    var checked = Array.from(document.querySelectorAll('.row-check:checked'));
+    if (checked.length === 0) {
+        alert('선택된 항목이 없습니다. 취소할 항목의 체크박스를 먼저 선택해주세요.');
+        return false;
+    }
+
+    // 재시도 대비: 이전에 붙여둔 새 유효기간 hidden 입력 제거
+    document.querySelectorAll('input[name^="new_expiry_"]').forEach(el => el.remove());
+
+    var today = new Date().toISOString().slice(0, 10);
+    var expiredItems = checked.filter(function(cb) {
+        var exp = cb.getAttribute('data-expiry');
+        return exp && exp !== '9999-12-31' && exp < today;
+    });
+
+    for (var i = 0; i < expiredItems.length; i++) {
+        var cb = expiredItems[i];
+        var newExpiry = prompt(
+            cb.getAttribute('data-name') + '\n' +
+            '유효기간이 경과한 항목입니다. 유효기간을 수정하셔서 폐기 취소 하시겠습니까?\n\n' +
+            '새 유효기간을 입력하세요 (예: 2027-05-30):',
+            cb.getAttribute('data-expiry')
+        );
+        if (!newExpiry) {
+            return false; // 입력 취소 시 전체 제출 중단
+        }
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'new_expiry_' + cb.value;
+        hidden.value = newExpiry;
+        document.getElementById('cancelForm').appendChild(hidden);
+    }
+
+    return confirm('선택한 ' + checked.length + '개 항목의 폐기를 취소할까요?\n재고는 0으로 초기화됩니다.');
 }
 </script>
 {% endblock %}

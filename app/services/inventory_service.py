@@ -325,13 +325,23 @@ def get_disposed_items(part: str = "", q: str = "") -> list:
     return items
 
 
-def cancel_dispose(item_id: int):
+def cancel_dispose(item_id: int, new_expiry: str | None = None):
+    """폐기를 취소한다. new_expiry가 주어지면 유효기간도 같이 갱신한다
+    (이미 유효기간이 지난 항목은 그대로 두면 sync_expired_reagents()가
+    다음 조회 시 다시 자동폐기 처리해버리기 때문)."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE inventory SET disposed_at = NULL, disposal_reason = NULL, disposal_type = NULL, current_stock = 0 WHERE id = ?",
-        (item_id,),
-    )
+    if new_expiry:
+        cursor.execute(
+            "UPDATE inventory SET disposed_at = NULL, disposal_reason = '', disposal_type = '', "
+            "current_stock = 0, expiry_date = ? WHERE id = ?",
+            (new_expiry, item_id),
+        )
+    else:
+        cursor.execute(
+            "UPDATE inventory SET disposed_at = NULL, disposal_reason = '', disposal_type = '', current_stock = 0 WHERE id = ?",
+            (item_id,),
+        )
     conn.commit()
     conn.close()
 

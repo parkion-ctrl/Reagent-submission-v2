@@ -2473,7 +2473,8 @@ def disposal_admin_cancel(request):
     if not ids:
         return redirect("/disposal-admin/?error=선택된 항목이 없습니다.")
     for item_id in ids:
-        cancel_dispose(int(item_id))
+        new_expiry = request.POST.get(f"new_expiry_{item_id}", "").strip()
+        cancel_dispose(int(item_id), new_expiry=new_expiry or None)
     return redirect(f"/disposal-admin/?message={len(ids)}개 항목의 폐기가 취소되었습니다.")
 
 
@@ -2566,3 +2567,8 @@ def preset_cart_api(request, preset_id):
             "spec": item.get("spec") or "",
         })
     return JsonResponse({"items": result})
+
+
+@login_required
+def help_page(request):
+    return render(request, "help.html", {"active_menu": "help"})
