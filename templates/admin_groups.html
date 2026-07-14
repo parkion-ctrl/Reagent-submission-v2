@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1">그룹 관리</h2>
+            <div class="text-secondary">권한 묶음을 만들어 사용자에게 배정합니다.</div>
+        </div>
+        <a href="/admin-groups/new/" class="btn btn-primary">새 그룹</a>
+    </div>
+
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-md-6">
+            <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="그룹명 검색">
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary w-100" type="submit">조회</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>그룹명</th>
+                    <th>권한 수</th>
+                    <th class="text-end">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td>{{ group.name }}</td>
+                    <td>{{ group.permissions.count }}</td>
+                    <td class="text-end">
+                        <a href="/admin-groups/{{ group.id }}/edit/" class="btn btn-sm btn-outline-primary">수정</a>
+                        <form method="post" action="/admin-groups/{{ group.id }}/delete/" class="d-inline" onsubmit="return confirm('이 그룹을 삭제할까요?');">
+                            {{ csrf_input }}
+                            <button class="btn btn-sm btn-outline-danger" type="submit">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-secondary py-5">등록된 그룹이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

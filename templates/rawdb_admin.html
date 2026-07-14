@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0 fw-semibold">Raw Database 관리</h3>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if not_in_master and part %}
+            <button type="button" class="btn btn-success" onclick="submitUploadPreview()">마스터에 업로드</button>
+            {% endif %}
+            <a href="/rawdb-admin/export?part={{ part }}&q={{ q }}&hazardous_grade={{ hazardous_grade }}&sort={{ sort }}&order={{ order }}{% if not_in_master %}&not_in_master=1{% endif %}{% if in_master %}&in_master={{ in_master }}{% endif %}" class="btn btn-outline-success">엑셀 다운</a>
+            <a href="/rawdb-admin/vendor-list/" class="btn btn-outline-secondary">업체 목록 관리</a>
+            <a href="/rawdb-admin/equipment-list/" class="btn btn-outline-secondary">장비 목록 관리</a>
+            {% if show_form %}
+            <a href="/rawdb-admin?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}" class="btn btn-outline-secondary">등록 닫기</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <ul class="mb-3 text-muted small ps-3" style="line-height:1.8;">
+        <li>해당 목록의 항목들은 최근 1년간 SMART에서 청구된 물품 목록을 등록해둔 테이블입니다. 따라서 현재는 사용하지 않는 품목이나 폐기된 시약들이 섞여있을 수도 있습니다. 업로드 하기 전 한 번 확인해주세요.</li>
+        <li>파트를 선택한 후 <strong>시약 마스터 미등록 항목만 보기</strong>를 체크하면 <strong>마스터에 업로드</strong> 버튼이 활성화됩니다.</li>
+        <li>업로드할 항목을 체크박스로 선택 후(일괄 선택 가능) 필요한 정보를 입력해 주세요. 시약 구분을 제외한 나머지 정보는 미입력해도 업로드 가능합니다.</li>
+    </ul>
+
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="get" action="/rawdb-admin" class="filter-bar">
+        <div style="width:200px; flex-shrink:0;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="width:400px; flex-shrink:0;">
+            <label class="form-label custom-label">품목코드 / 품목명 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드 또는 품목명을 입력하세요">
+        </div>
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+        {% if in_master %}<input type="hidden" name="in_master" value="{{ in_master }}">{% endif %}
+        <div class="d-flex align-items-end gap-2" style="flex-shrink:0;">
+            <button type="submit" class="btn btn-primary px-4 py-2">조회</button>
+            <a href="/rawdb-admin" class="btn btn-outline-secondary px-4 py-2">초기화</a>
+        </div>
+        <div class="d-flex align-items-end pb-1" style="flex-shrink:0;">
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" name="not_in_master" id="not-in-master-check" value="1" {% if not_in_master %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="not-in-master-check">시약 마스터 미등록 항목만 보기</label>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if preview_mode %}
+<div class="section-card mb-4">
+    <h5 class="mb-3">시약 마스터 업로드 미리보기</h5>
+    <div class="mb-2">업로드 대상: <strong>{{ preview_items|length }}</strong>건 &nbsp;|&nbsp; Lot No, 유효기간, 시약 구분, 장비를 입력 후 최종 업로드하세요.</div>
+    <div class="table-responsive">
+        <form method="post" action="/rawdb-admin/upload-to-master/">
+            {{ csrf_input }}
+            <table class="table table-bordered table-sm align-middle preview-table">
+                <thead>
+                    <tr>
+                        <th>파트</th>
+                        <th>품목코드</th>
+                        <th>품목명</th>
+                        <th>규격</th>
+                        <th>단위</th>
+                        <th>Lot No</th>
+                        <th>유효기간</th>
+                        <th>시약 구분</th>
+                        <th>업체</th>
+                        <th>장비</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in preview_items %}
+                    <tr>
+                        <input type="hidden" name="item_ids" value="{{ item.id }}">
+                        <td><span class="part-pill">{{ item.part_label }}</span></td>
+                        <td>{{ item.item_code }}</td>
+                        <td class="text-start">{{ item.item_name }}</td>
+                        <td>{{ item.spec }}</td>
+                        <td>{{ item.unit }}</td>
+                        <td><input type="text" name="lot_no_{{ item.id }}" class="form-control form-control-sm" style="min-width:100px;"></td>
+                        <td><input type="date" name="expiry_date_{{ item.id }}" class="form-control form-control-sm" style="min-width:130px;"></td>
+                        <td>
+                            <select name="reagent_type_{{ item.id }}" class="form-select form-select-sm" style="min-width:110px;">
+                                <option value="1" {% if item.part not in ('ZZ', 'PB') %}selected{% endif %}>Reagent</option>
+                                <option value="2">Control</option>
+                                <option value="3">Calibrator</option>
+                                <option value="4">Supply</option>
+                                <option value="5" {% if item.part in ('ZZ', 'PB') %}selected{% endif %}>Extra</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select name="vendor_{{ item.id }}" class="form-select form-select-sm" style="min-width:120px;">
+                                <option value=""></option>
+                                {% for v in vendor_options %}
+                                <option value="{{ v }}" {% if v == item.vendor %}selected{% endif %}>{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <select name="equipment_{{ item.id }}" class="form-select form-select-sm" style="min-width:120px;">
+                                <option value=""></option>
+                                {% for e in equipment_options %}
+                                {% if not e.part or e.part == item.part %}
+                                <option value="{{ e.name }}">{{ e.name }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-success" onclick="return confirm('이대로 시약 마스터에 업로드하시겠습니까?')">최종 업로드</button>
+                <a href="/rawdb-admin?not_in_master=1&part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}" class="btn btn-danger">취소</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if show_form %}
+<div class="section-card mb-4">
+    <h3 class="mb-3">{% if edit_item %}품목 수정{% else %}새 품목 등록{% endif %}</h3>
+    <form method="post" action="{% if edit_item %}/rawdb-admin/{{ edit_item.id }}/edit{% else %}/rawdb-admin/create{% endif %}" class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">유해물질</label>
+            <select name="hazardous" class="form-select">
+                <option value="N" {% if not edit_item or edit_item.hazardous not in ['Y','y','1'] %}selected{% endif %}>N</option>
+                <option value="Y" {% if edit_item and edit_item.hazardous in ['Y','y','1'] %}selected{% endif %}>Y</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">등급</label>
+            <input type="text" name="hazardous_grade" class="form-control" value="{{ edit_item.hazardous_grade if edit_item else '' }}" placeholder="예) 1급, 2급">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">파트</label>
+            <select name="part" class="form-select" required>
+                <option value="">선택</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if edit_item and edit_item.part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">품목코드</label>
+            <input type="text" name="item_code" class="form-control" value="{{ edit_item.item_code if edit_item else '' }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">품목명</label>
+            <input type="text" name="item_name" class="form-control" value="{{ edit_item.item_name if edit_item else '' }}" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">규격</label>
+            <input type="text" name="spec" class="form-control" value="{{ edit_item.spec if edit_item else '' }}">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">단위</label>
+            <input type="text" name="unit" class="form-control" value="{{ edit_item.unit if edit_item else '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Lot No</label>
+            <input type="text" name="lot_no" class="form-control" value="{{ edit_item.lot_no if edit_item else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">유효기간</label>
+            <input type="date" name="expiry_date" class="form-control" value="{{ edit_item.expiry_date if edit_item else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">시약 구분</label>
+            <select name="reagent_type" class="form-select">
+                <option value="">-</option>
+                <option value="1" {% if edit_item and edit_item.reagent_type|string == '1' %}selected{% endif %}>Reagent</option>
+                <option value="2" {% if edit_item and edit_item.reagent_type|string == '2' %}selected{% endif %}>Control</option>
+                <option value="3" {% if edit_item and edit_item.reagent_type|string == '3' %}selected{% endif %}>Calibrator</option>
+                <option value="4" {% if edit_item and edit_item.reagent_type|string == '4' %}selected{% endif %}>Supply</option>
+                <option value="5" {% if edit_item and edit_item.reagent_type|string == '5' %}selected{% endif %}>Extra</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">업체</label>
+            <input type="text" name="vendor" class="form-control" value="{{ edit_item.vendor if edit_item else '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">장비</label>
+            <input type="text" name="equipment" class="form-control" value="{{ edit_item.equipment if edit_item else '' }}">
+        </div>
+        <div class="col-md-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{% if edit_item %}수정{% else %}등록{% endif %}</button>
+            {% if edit_item %}
+            <a href="/rawdb-admin?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}" class="btn btn-outline-secondary">수정 취소</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="section-card table-card">
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0" id="rawdb-table">
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="rawdb-select-all" aria-label="전체 선택">
+                    </th>
+                    <th onclick="sortTable('part')" class="sortable">파트 <span class="sort-icon {% if sort == 'part' %}active{% endif %}">{% if sort == "part" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>유해물질</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if hazardous_grade %}filter-active-text{% endif %}">등급</span>
+                            <button type="button" class="filter-toggle {% if hazardous_grade %}active{% endif %}" onclick="toggleRawdbFilter(event, 'filter-rawdb-hazardous-grade')">▽</button>
+                        </div>
+                        <div id="filter-rawdb-hazardous-grade" class="filter-menu d-none" style="width:220px; max-width:220px;">
+                            <form method="get" action="/rawdb-admin" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                {% if not_in_master %}<input type="hidden" name="not_in_master" value="1">{% endif %}
+                                {% if in_master %}<input type="hidden" name="in_master" value="{{ in_master }}">{% endif %}
+                                <select name="hazardous_grade" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for val in filter_options.hazardous_grade_options %}
+                                    <option value="{{ val }}" {% if hazardous_grade == val %}selected{% endif %}>{% if val == "__BLANK__" %}(공란){% else %}{{ val }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="/rawdb-admin?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}{% if not_in_master %}&not_in_master=1{% endif %}{% if in_master %}&in_master={{ in_master }}{% endif %}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th onclick="sortTable('item_code')" class="sortable">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    {% if current_schema == 'path' %}<th>CAS-NO</th>{% endif %}
+                    <th>업체</th>
+                    <th onclick="sortTable('unit_price')" class="sortable">단가 <span class="sort-icon {% if sort == 'unit_price' %}active{% endif %}">{% if sort == "unit_price" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>규격</th>
+                    <th>단위</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if in_master %}filter-active-text{% endif %}">마스터 등록</span>
+                            <button type="button" class="filter-toggle {% if in_master %}active{% endif %}" onclick="toggleRawdbFilter(event, 'filter-rawdb-in-master')">▽</button>
+                        </div>
+                        <div id="filter-rawdb-in-master" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" action="/rawdb-admin" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="hazardous_grade" value="{{ hazardous_grade }}">
+                                {% if not_in_master %}<input type="hidden" name="not_in_master" value="1">{% endif %}
+                                <select name="in_master" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    <option value="Y" {% if in_master == "Y" %}selected{% endif %}>Y</option>
+                                    <option value="N" {% if in_master == "N" %}selected{% endif %}>N</option>
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="/rawdb-admin?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}&hazardous_grade={{ hazardous_grade }}{% if not_in_master %}&not_in_master=1{% endif %}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="selectable-row" data-item-id="{{ item.id }}">
+                    <td>
+                        <input type="checkbox" class="rawdb-row-checkbox" value="{{ item.id }}" aria-label="항목 선택">
+                    </td>
+                    <td><span class="part-pill">{{ item.part_label }}</span></td>
+                    <td>{{ item.hazardous }}</td>
+                    <td>{{ item.hazardous_grade }}</td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}">{{ item.item_name }}</td>
+                    {% if current_schema == 'path' %}<td>{{ item.cas_no }}</td>{% endif %}
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.unit_price }}</td>
+                    <td>{{ item.spec }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td class="text-center fw-semibold {% if item.in_master == 'Y' %}text-success{% else %}text-danger{% endif %}">{{ item.in_master }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="py-4 text-center text-muted">조회된 항목이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form id="rawdb-action-form" method="post" style="display:none;"></form>
+<form id="rawdb-upload-preview-form" method="post" action="/rawdb-admin/upload-preview/" style="display:none;">
+    {{ csrf_input }}
+    <input type="hidden" name="part" value="{{ part }}">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="hazardous_grade" value="{{ hazardous_grade }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+</form>
+
+<script>
+function toggleRawdbFilter(event, id) {
+    event.stopPropagation();
+    const target = document.getElementById(id);
+    const button = event.currentTarget;
+    document.querySelectorAll('.filter-menu').forEach(m => { if (m !== target) m.classList.add('d-none'); });
+    if (!target.dataset.moved) { document.body.appendChild(target); target.dataset.moved = "1"; }
+    if (target.classList.contains('d-none')) {
+        target.classList.remove('d-none');
+        const rect = button.getBoundingClientRect();
+        const mRect = target.getBoundingClientRect();
+        let top = rect.bottom + 6;
+        if (window.innerHeight - rect.bottom < mRect.height + 12 && rect.top > mRect.height + 12)
+            top = rect.top - mRect.height - 6;
+        target.style.position = 'fixed';
+        target.style.top = top + 'px';
+        target.style.left = Math.min(rect.left, window.innerWidth - mRect.width - 8) + 'px';
+        target.style.zIndex = '99999';
+    } else {
+        target.classList.add('d-none');
+    }
+}
+document.addEventListener('click', e => {
+    document.querySelectorAll('.filter-menu').forEach(m => { if (!m.contains(e.target)) m.classList.add('d-none'); });
+});
+window.addEventListener('scroll', () => document.querySelectorAll('.filter-menu').forEach(m => m.classList.add('d-none')), true);
+window.addEventListener('resize', () => document.querySelectorAll('.filter-menu').forEach(m => m.classList.add('d-none')));
+</script>
+
+<script>
+function getSelectedRawdbIds() {
+    return Array.from(document.querySelectorAll('.rawdb-row-checkbox:checked')).map(cb => cb.value);
+}
+
+function updateRawdbRowHighlights() {
+    document.querySelectorAll('.selectable-row').forEach(row => {
+        const checkbox = row.querySelector('.rawdb-row-checkbox');
+        const isChecked = checkbox && checkbox.checked;
+        row.querySelectorAll('td').forEach(cell => {
+            cell.style.backgroundColor = isChecked ? '#e8f1ff' : '';
+        });
+    });
+    const selectAll = document.getElementById('rawdb-select-all');
+    if (selectAll) {
+        const all = Array.from(document.querySelectorAll('.rawdb-row-checkbox'));
+        selectAll.checked = all.length > 0 && all.every(cb => cb.checked);
+    }
+}
+
+function submitUploadPreview() {
+    const ids = getSelectedRawdbIds();
+    if (ids.length === 0) { alert('업로드할 항목을 선택해 주세요'); return; }
+    const form = document.getElementById('rawdb-upload-preview-form');
+    form.querySelectorAll('input[name="item_ids"]').forEach(el => el.remove());
+    ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    form.submit();
+}
+
+function handleRawdbAction(action) {
+    const ids = getSelectedRawdbIds();
+    if (action === 'edit') {
+        if (ids.length === 0) { alert('수정할 항목을 선택해 주세요'); return; }
+        if (ids.length > 1) { alert('수정은 한 번에 한 항목만 가능합니다'); return; }
+        const url = new URL(window.location.href);
+        url.searchParams.set('edit_id', ids[0]);
+        url.searchParams.set('show_form', '1');
+        window.location.href = url.toString();
+        return;
+    }
+    if (ids.length === 0) { alert('삭제할 항목을 선택해 주세요'); return; }
+    if (!confirm(`총 ${ids.length}개 항목을 삭제하시겠습니까?`)) return;
+
+    const form = document.getElementById('rawdb-action-form');
+    form.innerHTML = '';
+    form.action = '/rawdb-admin/bulk-delete';
+    ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    form.submit();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.item-name-cell.expandable').forEach(cell => {
+        cell.addEventListener('click', function () { this.classList.toggle('expanded'); });
+    });
+    document.querySelectorAll('.rawdb-row-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateRawdbRowHighlights);
+    });
+    const selectAll = document.getElementById('rawdb-select-all');
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll('.rawdb-row-checkbox').forEach(cb => { cb.checked = this.checked; });
+            updateRawdbRowHighlights();
+        });
+    }
+    updateRawdbRowHighlights();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>시약관리시스템 사용설명서</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; font-size: 11pt; color: #222; background: #fff; }
+
+  .cover {
+    page-break-after: always;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    height: 100vh; text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    color: white;
+  }
+  .cover .logo { font-size: 48pt; font-weight: 900; letter-spacing: -2px; margin-bottom: 12px; }
+  .cover .logo span { color: #38bdf8; }
+  .cover .subtitle { font-size: 16pt; color: #94a3b8; margin-bottom: 40px; }
+  .cover .badge { background: #38bdf8; color: #0f172a; padding: 6px 20px; border-radius: 20px; font-weight: 700; font-size: 11pt; display: inline-block; margin-bottom: 60px; }
+  .cover .info { color: #64748b; font-size: 10pt; line-height: 2; }
+
+  .toc-page { page-break-after: always; padding: 60px 80px; }
+  .toc-title { font-size: 20pt; font-weight: 700; color: #1e3a5f; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; margin-bottom: 30px; }
+  .toc-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dotted #ddd; font-size: 11pt; }
+  .toc-item .num { color: #38bdf8; font-weight: 700; margin-right: 12px; }
+  .toc-item .page { color: #94a3b8; }
+
+  .page { page-break-after: always; padding: 50px 70px; }
+  .page:last-child { page-break-after: auto; }
+
+  .section-header {
+    background: linear-gradient(135deg, #1e3a5f, #2563eb);
+    color: white; padding: 16px 24px; border-radius: 10px;
+    margin-bottom: 28px;
+  }
+  .section-header .section-num { font-size: 10pt; color: #93c5fd; margin-bottom: 4px; }
+  .section-header h2 { font-size: 18pt; font-weight: 700; }
+
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .feature-card {
+    border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px 18px;
+    background: #f8fafc;
+  }
+  .feature-card .card-icon { font-size: 20pt; margin-bottom: 8px; }
+  .feature-card .card-title { font-size: 12pt; font-weight: 700; color: #1e3a5f; margin-bottom: 6px; }
+  .feature-card .card-desc { font-size: 9.5pt; color: #475569; line-height: 1.7; }
+
+  .step-list { counter-reset: step; }
+  .step { display: flex; gap: 14px; margin-bottom: 18px; align-items: flex-start; }
+  .step-num {
+    background: #2563eb; color: white; border-radius: 50%;
+    width: 28px; height: 28px; min-width: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 11pt;
+  }
+  .step-content .step-title { font-weight: 700; color: #1e3a5f; margin-bottom: 4px; font-size: 11pt; }
+  .step-content .step-desc { font-size: 10pt; color: #475569; line-height: 1.7; }
+
+  .highlight-box {
+    background: #eff6ff; border-left: 4px solid #2563eb;
+    border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0;
+  }
+  .highlight-box .hb-title { font-weight: 700; color: #1e3a5f; margin-bottom: 6px; font-size: 10.5pt; }
+  .highlight-box .hb-desc { font-size: 10pt; color: #334155; line-height: 1.7; }
+
+  .warn-box {
+    background: #fef3c7; border-left: 4px solid #f59e0b;
+    border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0;
+  }
+  .warn-box .wb-title { font-weight: 700; color: #92400e; margin-bottom: 6px; }
+  .warn-box .wb-desc { font-size: 10pt; color: #78350f; line-height: 1.7; }
+
+  .screenshot-placeholder {
+    border: 2px dashed #cbd5e1; border-radius: 10px;
+    background: #f8fafc; padding: 30px;
+    text-align: center; color: #94a3b8;
+    margin: 18px 0; font-size: 10pt;
+  }
+  .screenshot-placeholder .ph-icon { font-size: 28pt; margin-bottom: 8px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 10pt; }
+  th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 9pt; font-weight: 600; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-teal { background: #ccfbf1; color: #0f766e; }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  @media print {
+    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .page { padding: 40px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 표지 -->
+<div class="cover">
+  <div class="logo">시약<span>관리</span>시스템</div>
+  <div class="subtitle">Reagent Management System</div>
+  <div class="badge">사용자 설명서 v1.0</div>
+  <div class="info">
+    작성일: 2026년 4월<br>
+    대상: 시스템 사용자 전원
+  </div>
+</div>
+
+<!-- 목차 -->
+<div class="toc-page">
+  <div class="toc-title">목차</div>
+  <div class="toc-item"><span><span class="num">01</span> 시스템 개요</span><span class="page">P.2</span></div>
+  <div class="toc-item"><span><span class="num">02</span> 로그인 및 부서 선택</span><span class="page">P.2</span></div>
+  <div class="toc-item"><span><span class="num">03</span> 재고 조회</span><span class="page">P.3</span></div>
+  <div class="toc-item"><span><span class="num">04</span> 시약 마스터 관리</span><span class="page">P.3</span></div>
+  <div class="toc-item"><span><span class="num">05</span> 입고 / 출고 등록</span><span class="page">P.4</span></div>
+  <div class="toc-item"><span><span class="num">06</span> 입출고 이력 조회</span><span class="page">P.4</span></div>
+  <div class="toc-item"><span><span class="num">07</span> 시약 사용 이력</span><span class="page">P.5</span></div>
+  <div class="toc-item"><span><span class="num">08</span> 관리자 기능</span><span class="page">P.5</span></div>
+</div>
+
+<!-- 페이지 1: 개요 + 로그인 -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-num">SECTION 01 — 02</div>
+    <h2>시스템 개요 및 로그인</h2>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="card-icon">📦</div>
+      <div class="card-title">재고 관리</div>
+      <div class="card-desc">파트별 시약 재고 현황을 실시간으로 확인하고, 안전재고 미달 시 자동으로 경고를 표시합니다.</div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">📋</div>
+      <div class="card-title">입출고 관리</div>
+      <div class="card-desc">시약 입고·출고를 등록하고, 입출고 이력 조회 메뉴를 통해 시약의 전체 입출고 이력을 조건별로 조회·엑셀 내보내기할 수 있습니다.</div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">🔬</div>
+      <div class="card-title">시약 이력 관리</div>
+      <div class="card-desc">개봉일, Parallel date 등록, 폐기 시약 조회, New lot 구분 등 시약의 사용 이력을 상세하게 기록하고 조회합니다.</div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">⚙️</div>
+      <div class="card-title">관리자 기능</div>
+      <div class="card-desc">재고 직접 수정, 이력 수정·삭제, 사용자·그룹·파트 관리 등 관리자 전용 기능을 제공합니다.</div>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:32px;">
+    <div class="section-num">SECTION 02</div>
+    <h2>로그인 및 부서 선택</h2>
+  </div>
+
+  <div class="step-list">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">로그인</div>
+        <div class="step-desc">관리자로부터 발급받은 아이디와 비밀번호를 입력하고 로그인합니다. 초기 비밀번호는 0000입니다. </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">부서</div>
+        <div class="step-desc"> 기본적으로 소속 부서의 데이터만 열람이 가능하나, 예외적으로 admin 계정은 타 부서 데이터 열람이 가능합니다. 로그인 후 상단 헤더에서 소속 부서(진검, 병리, 핵)를 확인할 수 있습니다. </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <div class="hb-title">💡 파트 구분</div>
+    <div class="hb-desc">시스템은 파트별로 데이터를 분리하여 관리합니다. 등록된 파트의 시약이 우선으로 필터가 걸려 조회·관리됩니다. 파트는 관리자 메뉴에서 변경이 자유롭게 가능합니다.</div>
+  </div>
+</div>
+
+<!-- 페이지 2: 재고 조회 + 마스터 -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-num">SECTION 03</div>
+    <h2>재고 조회</h2>
+  </div>
+
+  <div class="step-list">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">메뉴 → 재고 조회 접속</div>
+        <div class="step-desc">좌측 메뉴에서 <strong>재고 조회</strong>를 클릭합니다. 현재 파트의 전체 시약 재고 현황이 표시됩니다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">조건 필터링</div>
+        <div class="step-desc">파트, 품목코드, 품목명으로 검색하거나 테이블 헤더의 필터 버튼(▼)으로 특정 조건만 표시할 수 있습니다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">안전재고 확인</div>
+        <div class="step-desc">현재 재고가 안전재고 미만인 항목은 별도 색상으로 강조 표시됩니다. 즉시 발주 검토가 필요합니다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">엑셀 내보내기</div>
+        <div class="step-desc">우측 상단 <strong>엑셀</strong> 버튼을 클릭하면 현재 조회 조건의 재고 데이터를 Excel 파일로 다운로드합니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:32px;">
+    <div class="section-num">SECTION 04</div>
+    <h2>시약 마스터 관리</h2>
+  </div>
+
+  <p style="margin-bottom:16px; color:#475569; font-size:10pt; line-height:1.8;">시약 마스터는 시스템에 등록된 시약의 기본 정보(품목코드, 품목명, Lot No, 유효기간, 안전재고 등)를 관리하는 화면입니다. 새로운 항목 등록 및 수정 시 수기로 수정 및 등록도 가능하며, 업로드 페이지 내 설명에 따라 엑셀 양식을 업로드하여 일괄 등록할 수도 있습니다. 이 경우, 페이지에서 다운로드가 가능한 엑셀 미리보기 파일을 다운 받은 후, 페이지의 설명대로 내용을 채워주세요. 대량의 데이터의 수정이 필요할 경우 관리자가 직접 DB에 등록/수정하는 방식이 더 편리하므로, 관리자에게 문의해주세요. </p>
+
+  <table>
+    <thead>
+      <tr><th>기능</th><th>설명</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>시약 등록</strong></td><td>새 시약 정보를 직접 입력하거나 엑셀 일괄 업로드로 등록합니다.</td></tr>
+      <tr><td><strong>시약 수정</strong></td><td>등록된 시약의 정보를 수정합니다. (품목명, 안전재고, 유효기간 등)</td></tr>
+      <tr><td><strong>시약 폐기</strong></td><td>더 이상 사용하지 않는 시약을 폐기 처리합니다.</td></tr>
+      <tr><td><strong>일괄 업로드</strong></td><td>엑셀 템플릿을 다운로드하여 여러 시약을 한 번에 등록합니다.</td></tr>
+      <tr><td><strong>엑셀 내보내기</strong></td><td>현재 마스터 데이터 전체를 Excel로 내보냅니다.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn-box">
+    <div class="wb-title">⚠️ 주의사항</div>
+    <div class="wb-desc">시약 삭제 시 해당 시약의 입출고 이력도 함께 삭제가 됩니다. 폐기 처리를 우선적으로 활용하세요. 폐기 처리 된 시약은 입고 및 출고. 청구는 불가능해지나 입출고 이력 조회 및 시약 이력 조회 탭에서는 여전히 확인할 수 있습니다.</div>
+  </div>
+</div>
+
+<!-- 페이지 3: 입고/출고 + 이력 -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-num">SECTION 05</div>
+    <h2>입고 / 출고 등록</h2>
+  </div>
+
+
+  <p style="margin-bottom:16px; color:#475569; font-size:10pt; line-height:1.8;">입출고 역시 엑셀을 활용하여, 일괄 입고/출고 처리가 가능합니다. 다만, 해당 기능은 업체에서 엑셀 파일을 추후 준비해 줄 것을 상정하여 제작한 기능이기에 소량의 항목을 입고, 출고 처리하는 경우 수기 입력 기능을 사용하는 것이 더 편리합니다. (직접 품목코드, Exp date 등을 마스터에 등록되어 있는 정보와 일치하게 입력하지 않으면 엑셀 입력의 경우는 오류가 나며 입고/출고가 진행되지 않기 때문입니다)  </p>
+
+
+  <div class="two-col">
+    <div>
+      <h3 style="color:#1e3a5f; margin-bottom:14px; font-size:13pt;">📥 입고 등록</h3>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">입고 메뉴 접속</div>
+            <div class="step-desc">좌측 메뉴 → <strong>입고</strong> 클릭</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">시약 선택</div>
+            <div class="step-desc">품목코드 또는 품목명으로 시약을 검색하여 선택합니다. 체크박스를 통해 여러 항목을 체크해 동시에 입고하거나, 필터를 걸어 원하는 조건의 시약만 확인할 수 있습니다.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">수량·날짜 입력</div>
+            <div class="step-desc">입고 수량을 입력하고 저장합니다.</div>
+          </div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <div class="hb-title">무상입고 & 가출고 처리</div>
+        <div class="hb-desc">이력 조회 화면에서 일반 입고, 출고를 무상입고 및 가출고로 변경할 수 있습니다. 무상입고 및 가출고 처리한 경우, 이후 발생한 출고의 경우 무상입고 및 가출고 수량만큼은 출고에 반영되지 않습니다. </div>
+      </div>
+    </div>
+    <div>
+      <h3 style="color:#1e3a5f; margin-bottom:14px; font-size:13pt;">📤 출고 등록</h3>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">출고 메뉴 접속</div>
+            <div class="step-desc">좌측 메뉴 → <strong>출고</strong> 클릭</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">시약 선택</div>
+            <div class="step-desc">출고할 시약을 검색하여 선택합니다. 체크박스를 통해 여러 항목을 체크해 동시에 출고하거나, 필터를 걸어 원하는 조건의 시약만 확인할 수 있습니다. </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">수량·날짜 입력</div>
+            <div class="step-desc">출고 수량을 입력하고 저장합니다. 재고가 자동으로 차감됩니다.</div>
+          </div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <div class="hb-title">NEW LOT 등록</div>
+        <div class="hb-desc">엑셀로 일괄 입고 시에 기존의 품목코드와 일치하나, Lot no가 불일치하는 항목이 있을 경우 시스템은 New lot로 판단해 자동으로 New lot 등록 및, 마스터 등록을 해당 품목 입고 시 같이 진행합니다. 또는 입고 선택 후 보이는 선택된 항목 테이블에서 New lot 로 등록할 항목을 체크박스를 누른 후, New lot 등록을 눌러 직접 등록할 수도 있습니다. New lot로 구분된 항목은 녹색 글자로 표기되며, 항목명 뒤에 (new)가 붙습니다. </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:32px;">
+    <div class="section-num">SECTION 06</div>
+    <h2>입출고 이력 조회</h2>
+  </div>
+
+  <p style="margin-bottom:16px; color:#475569; font-size:10pt; line-height:1.8;">모든 입고·출고 기록을 조건별로 조회할 수 있습니다.</p>
+
+  <table>
+    <thead>
+      <tr><th>필터 조건</th><th>설명</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>구분</td><td><span class="badge badge-blue">입고</span> <span class="badge badge-purple">출고</span> <span class="badge badge-teal">무상입고</span> <span class="badge badge-red">가출고</span> 별도 필터링 가능</td></tr>
+      <tr><td>파트</td><td>특정 파트만 선택하여 조회</td></tr>
+      <tr><td>품목 검색</td><td>품목코드, 품목명, Lot No로 검색</td></tr>
+      <tr><td>업체</td><td>테이블 헤더 필터로 특정 업체 또는 (공란)만 조회</td></tr>
+      <tr><td>시약 구분</td><td>시약 종류별 필터링</td></tr>
+      <tr><td>조회 기간</td><td>최근 7일 / 1개월 / 6개월 또는 날짜 직접 입력</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box">
+    <div class="hb-title">📊 엑셀 내보내기</div>
+    <div class="hb-desc">현재 조회 조건 그대로 Excel 파일로 내보낼 수 있습니다. 상단 <strong>엑셀</strong> 버튼을 클릭하세요.</div>
+  </div>
+</div>
+
+<!-- 페이지 4: 시약 이력 + 관리자 -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-num">SECTION 07</div>
+    <h2>시약 사용 이력</h2>
+  </div>
+
+  <p style="margin-bottom:16px; color:#475569; font-size:10pt; line-height:1.8;">입출고 이력과 별개로 시약의 실제 사용 상태(개봉, 병행사용 등)를 기록하는 화면입니니다. </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="card-icon">📅</div>
+      <div class="card-title">개봉일 기록</div>
+      <div class="card-desc">시약을 처음 개봉한 날짜를 기록합니다. 유효기간 관리에 활용됩니다.</div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">🔄</div>
+      <div class="card-title">Parallel date 기록</div>
+      <div class="card-desc">파트 및 시약에 따라 새 lot no의 시약이 입고될 경우 기존 시약과 비교하는 parallel test를 시행합니다. 이 경우 parallel test를 시행한 일자를 기록합니다.</div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">🏷️</div>
+      <div class="card-title">Lot 관리, 폐기 시약 관리</div>
+      <div class="card-desc">Lot 교체 시 이전 Lot와 신규 Lot 정보를 관리합니다. 폐기 여부 필터링을 통해 폐기된 시약만 따로 모아보는 것도 가능합니다. </div>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon">📤</div>
+      <div class="card-title">New Lot 등록/관리</div>
+      <div class="card-desc">입고 시, 기존에 존재하는 품목코드와 일치하나, Lot no가 불일치하는 항목은 입고 시에 자동으로 New lot로 관리됩니다. 또한, 해당 페이지에서 old/new lot 등록 - 조회를 통해 Lot no가 서로 다른 동일한 품목이 있을 경우, 체크박스를 통해 수동으로 Old/New lot 여부를 변경할 수 있습니다. 현재 New lot 판정은, 해당 시약의 old lot이 폐기되어 해당 시약이 단일 lot no만 남게 되거나, parallel date 또는 open date가 등록된 경우 자동으로 해제되게 되어있습니다. 이외의 상황에서 해제가 필요할 경우, 해당 페이지에서 수동으로 체크박스를 눌러 해지해주세요. </div>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:32px;">
+    <div class="section-num">SECTION 08</div>
+    <h2>관리자 기능</h2>
+  </div>
+
+  <p style="margin-bottom:16px; color:#475569; font-size:10pt; line-height:1.8;">관리자 계정으로 로그인 시 우측 메뉴에서 <strong>관리자 패널</strong>에 접근할 수 있습니다.</p>
+
+  <table>
+    <thead>
+      <tr><th>기능</th><th>설명</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>재고 직접 수정</strong></td>
+        <td>실재고와 시스템 재고가 불일치할 때 재고를 직접 수정합니다. 수정 내역은 입출고 이력에 자동 반영됩니다.</td>
+      </tr>
+      <tr>
+        <td><strong>입출고 이력 수정/삭제</strong></td>
+        <td>잘못 입력된 입출고 이력을 수정하거나 삭제합니다. 수정/삭제 시 재고가 자동으로 재계산됩니다.</td>
+      </tr>
+      <tr>
+        <td><strong>사용자 관리</strong></td>
+        <td>시스템 사용자 계정을 생성·수정·삭제하고 권한 그룹을 지정합니다. 사용자를 새롭게 추가할 때에는 사용자 정보(아이디, 이름)을 입력하고, 부서, 파트, 권한 그룹을 선택한 후 등록을 누릅니다.</td>
+      </tr>
+      <tr>
+        <td><strong>그룹 관리</strong></td>
+        <td>권한 그룹을 생성하고 기능별 접근 권한을 설정합니다. 권한은 관리자, 일반 유저, 외부 업체 3단계론 나누어져 있는데 현재로서는 관리자는 관리자 페이지에 접근이 가능해 직접 재고 및 이력 수정, 사용자 관리가 가능하고 나머지 일반 유저, 외부 업체는 이가 불가능합니다. 아직은 권한 세분화가 되어있지는 않아 일반 유저와 외부 업체간의 권한 차이는 없습니다. </td>
+      </tr>
+      <tr>
+        <td><strong>파트 관리</strong></td>
+        <td>파트 정보를 등록·수정하고 사용자별 파트를 배정합니다. 필요 시 파트를 추가하거나 삭제할 수도 있습니다. 초기 화면에는 ZZ(기타) 파트 1개만이 등록되어 있으니 자유롭게 수정하여 사용해주세요. 파트를 삭제할 경우, 해당 파트에 속한 시약 데이터가 삭제되진 않으나, 해당 시약들은 파트가 없는 상태로 남게 되므로 가능한 파트 삭제보단 수정 기능을 이용해주세요.</td>
+      </tr>
+       <tr>
+        <td><strong>Raw DB 관리</strong></td>
+        <td>진단검사의학과에서 2025.01~2026.04 사이에 청구된 품목들의 기본 데이터 (물품코드, 물품명, 유해물질 등급, 유해물질 여부, 단위, 규격) 이 등록되어 있고, 필요 시 추가 정보(시약 구분, Lot no, 업체, 장비)를 입력하여 마스터에 업로드 할 수 있습니다. </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warn-box">
+    <div class="wb-title">⚠️ 재고 수정 주의사항</div>
+    <div class="wb-desc">재고를 직접 수정하면 입출고 이력에 자동 기록됩니다. 수정 전 반드시 사유를 확인하고, 한쪽(재고 또는 이력)을 수정하면 다른 쪽에 자동 반영되므로 이중 수정에 주의하세요.</div>
+  </div>
+
+  <div class="highlight-box" style="margin-top: 24px;">
+    <div class="hb-title">🔍 슈퍼 계정 기능 </div>
+    <div class="hb-desc"> 슈퍼 계정은 일반 관리자 계정과 다르게 타 부서 데이터도 열람/수정이 가능합니다. 슈퍼 계정은 모든 기능에 대한 접근 권한을 가지며, 시스템의 모든 데이터를 조회하고 수정할 수 있습니다.</div>
+  </div>
+</div>
+
+</body>
+</html>

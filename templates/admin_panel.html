@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+{% if message %}
+<div class="alert alert-success mb-3">{{ message }}</div>
+{% endif %}
+<div class="page-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1">관리자 허브</h2>
+            <div class="text-secondary">사용자, 재고, 이력을 한 화면에서 관리합니다.</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">사용자</div>
+                <div class="stat-value">{{ stats.users }}명</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">그룹</div>
+                <div class="stat-value">{{ stats.groups }}개</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">시약 마스터 등록</div>
+                <div class="stat-value">{{ stats.inventory }}건</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">최근 1개월 입출고 이력</div>
+                <div class="stat-value">{{ stats.history }}건</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="stat-card">
+                <div class="stat-label">사용자 / 권한</div>
+                <div class="stat-value">계정, 그룹, 권한</div>
+                <div class="stat-note mb-3">사용자 계정 상태와 소속 그룹을 한 번에 확인하고 수정할 수 있습니다.</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge text-bg-primary px-3 py-2">사용자 {{ stats.users }}명</span>
+                    <span class="badge text-bg-light border px-3 py-2">그룹 {{ stats.groups }}개</span>
+                </div>
+                <div class="mt-3">
+                    <a href="/admin-users/" class="btn btn-primary me-2">사용자 관리</a>
+                    <a href="/admin-parts/" class="btn btn-outline-primary">파트 관리</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="stat-card">
+                <div class="stat-label">시약 데이터 관리</div>
+                <div class="stat-value">시약 데이터 수정</div>
+                <div class="stat-note mb-3">입출고 이력 수정 및 재고 직접 수정이 가능합니다. 한 쪽을 수정할 경우, 값이 다른쪽에 자동 반영됩니다. 입출고 이력 수정 시, 그에 맞춰 재고가 조정되며, 반대로 재고를 수정할 경우 그에 맞춰 자동으로 입출고 이력 기록을 만들어 냅니다.</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge text-bg-primary px-3 py-2">마스터 {{ stats.inventory }}건</span>
+                    <span class="badge text-bg-light border px-3 py-2">이력 {{ stats.history }}건</span>
+                </div>
+                <div class="mt-3">
+                    <a href="/history-admin/" class="btn btn-primary me-2">입출고 이력 수정</a>
+                    <a href="/inventory-admin/" class="btn btn-outline-primary me-2">재고 수정</a>
+                    <a href="/rawdb-admin/" class="btn btn-outline-secondary">Raw DB 관리</a>
+                    <a href="/disposal-admin/" class="btn btn-outline-danger">폐기 관리</a>
+                    <a href="/preset-admin/" class="btn btn-outline-success">약속 관리</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

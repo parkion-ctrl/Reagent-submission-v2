@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시약 재고 대시보드</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+</head>
+<body>
+<div class="container py-4">
+    <div class="header-box mb-4">
+        <h1 class="page-title">시약 재고 대시보드</h1>
+        <p class="page-subtitle">파트별 필터 및 물품명 검색</p>
+    </div>
+
+    <div class="filter-box mb-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">파트</label>
+                <select name="part" class="form-select">
+                    <option value="">전체</option>
+                    {% for code, name in part_map.items() %}
+                    <option value="{{ code }}" {% if part == code %}selected{% endif %}>
+                        {{ code }} ({{ name }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">물품명 검색</label>
+                <input type="text" name="q" class="form-control" value="{{ q }}" placeholder="물품명을 입력하세요">
+            </div>
+
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">검색</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-box">
+        <table class="table custom-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>파트</th>
+                    <th>물품코드</th>
+                    <th>물품명</th>
+                    <th>Lot no</th>
+                    <th>규격</th>
+                    <th>단위</th>
+                    <th>유효기간</th>
+                    <th>현재고</th>
+                    <th>적정재고</th>
+                    <th>안전재고</th>
+                    <th>요구량</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.part_label }}</td>
+                    <td>{{ item.item_code }}</td>
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ item.lot_no }}</td>
+                    <td>{{ item.spec }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.expiry_date }}</td>
+                    <td>{{ item.current_stock }}</td>
+                    <td>{{ item.optimal_stock }}</td>
+                    <td>{{ item.safety_stock }}</td>
+                    <td>{{ item.required_qty }}</td>
+                    <td>
+                        {% if item.status == "부족" %}
+                            <span class="badge bg-danger">부족</span>
+                        {% else %}
+                            <span class="badge bg-success">정상</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

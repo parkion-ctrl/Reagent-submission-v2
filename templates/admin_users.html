@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1">사용자 관리</h2>
+            <div class="text-secondary">계정 생성, 사번, 권한, 활성 상태를 관리합니다.</div>
+        </div>
+        <a href="/admin-users/new/" class="btn btn-primary">사용자 등록</a>
+    </div>
+
+    <form method="get" class="row g-2 mb-3">
+        {% if is_superadmin %}
+        <div class="col-md-3">
+            <select name="department" class="form-select">
+                <option value="">부서 전체</option>
+                {% for dept in department_choices %}
+                <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-md-4">
+            <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="아이디, 이름, 사번 검색">
+        </div>
+        <div class="col-md-2">
+            <select name="part" class="form-select">
+                <option value="">파트 전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if code == selected_part %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary w-100" type="submit">조회</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>아이디</th>
+                    <th>이름</th>
+                    <th>사번</th>
+                    <th>부서</th>
+                    <th>파트</th>
+                    <th>권한</th>
+                    <th>상태</th>
+                    <th class="text-end">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in users %}
+                <tr>
+                    <td>{{ row.user.username }}</td>
+                    <td>{{ row.user.first_name }} {{ row.user.last_name }}</td>
+                    <td>{{ row.employee_no }}</td>
+                    <td>{{ row.department }}</td>
+                    <td>{{ row.part }}</td>
+                    <td>
+                        {% for role_name in row.role_labels %}
+                            <span class="badge text-bg-light border me-1">{{ role_name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if row.user.is_active %}
+                            <span class="badge text-bg-success">활성</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">비활성</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="/admin-users/{{ row.user.id }}/edit/" class="btn btn-sm btn-outline-primary">수정</a>
+                        <form method="post" action="/admin-users/{{ row.user.id }}/delete/" class="d-inline" onsubmit="return confirm('이 사용자를 삭제할까요?');">
+                            {{ csrf_input }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-secondary py-5">등록된 사용자가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">약속 {% if preset %}수정{% else %}등록{% endif %}</div>
+
+    {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/preset-admin/{% if preset %}{{ preset.id }}/edit{% else %}new{% endif %}/">
+        {{ csrf_input }}
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">약속명 <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control"
+                       value="{{ preset.name if preset else '' }}" required placeholder="예) 주간 입고 묶음">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">파트 <span class="text-danger">*</span></label>
+                <select name="part" id="part-select" class="form-select" required
+                        onchange="window.location.href='/preset-admin/{% if preset %}{{ preset.id }}/edit{% else %}new{% endif %}?part='+this.value">
+                    <option value="">파트 선택</option>
+                    {% for code, name in part_map.items() %}
+                    <option value="{{ code }}" {% if selected_part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        {% if selected_part %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">품목 선택 <span class="text-muted small">({{ selected_part }} 파트 — 체크한 품목이 약속에 포함됩니다)</span></label>
+            <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(true)">전체 선택</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">전체 해제</button>
+                <input type="text" id="item-search" class="form-control form-control-sm" style="max-width:240px;" placeholder="품목코드/품목명 검색">
+            </div>
+            <div class="table-scroll" style="max-height:480px; overflow-y:auto;">
+                <table class="table table-sm inventory-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" id="check-all" class="form-check-input" onchange="toggleAll(this.checked)"></th>
+                            <th>품목코드</th>
+                            <th>품목명</th>
+                        </tr>
+                    </thead>
+                    <tbody id="item-tbody">
+                        {% for item in item_codes %}
+                        <tr class="item-row">
+                            <td>
+                                <input type="checkbox" class="form-check-input item-check"
+                                       name="item_codes" value="{{ item.item_code }}"
+                                       {% if item.item_code in preset_codes %}checked{% endif %}>
+                            </td>
+                            <td>{{ item.item_code }}</td>
+                            <td class="text-start">{{ item.item_name }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">해당 파트에 등록된 품목이 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info py-2">파트를 먼저 선택하면 해당 파트의 품목 목록이 표시됩니다.</div>
+        {% endif %}
+
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-success">저장</button>
+            <a href="/preset-admin/{% if preset %}?part={{ preset.part }}{% endif %}" class="btn btn-outline-secondary">취소</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('.item-check').forEach(cb => cb.checked = checked);
+    var allCheckbox = document.getElementById('check-all');
+    if (allCheckbox) allCheckbox.checked = checked;
+}
+
+var searchInput = document.getElementById('item-search');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        var q = this.value.toLowerCase();
+        document.querySelectorAll('.item-row').forEach(function(tr) {
+            var text = tr.textContent.toLowerCase();
+            tr.style.display = text.includes(q) ? '' : 'none';
+        });
+    });
+}
+</script>
+{% endblock %}

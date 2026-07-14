@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">시약 청구</div>
+    <ol class="page-section-desc mb-3" style="margin-left:1rem; line-height:1.8;">
+        <li>월별 청구 대상 입출고 이력을 조회합니다.</li>
+        <li>무상 입고의 경우 청구 대상에서 제외되며, 무상 입고가 발생한 시점으로부터 발생한 출고의 경우, 무상 입고로 입력한 수량만큼은 청구에서 제외됩니다.</li>
+        <li>가출고의 경우 청구 대상에는 포함되나, 가출고가 발생한 시점으로부터 발생한 출고의 경우, 가출고로 입력한 수량만큼은 청구에서 제외됩니다.</li>
+        <li>가출고와 출고가 혼합된 경우, 비고란에서 가출고와 추가 출고 수량을 각각 표시해줍니다. 예를 들어 100개 입고 후 바로 100개 전부 가출고 시켰는데, 이후 실출고를 150개 하게 된다면 실제 사용량인 150개를 기준으로 출고 청구는 잡히고, 비고란에는 가출고 100개, 추가 출고 50개라고 출력됩니다. 반면, 100개 가출고를 시켰는데 그 달에 실출고를 100개 미만으로 했다면, 출고는 가출고 시킨 100개로만 잡힙니다.</li>
+    </ol>
+
+    <form method="get" action="/billing" class="filter-bar" style="flex-wrap: wrap; overflow-x: visible;">
+        <div class="filter-item" style="max-width: 200px; min-width: 200px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item short">
+            <button type="submit" class="btn btn-primary custom-btn w-100">조회</button>
+        </div>
+
+        <div class="filter-item short">
+            <a href="/billing" class="btn btn-outline-secondary custom-btn w-100">초기화</a>
+        </div>
+
+        <div class="filter-item short">
+            <a href="/billing/export?date_from={{ date_from }}&date_to={{ date_to }}&part={{ part }}" class="btn btn-success custom-btn w-100">엑셀</a>
+        </div>
+    </form>
+</div>
+
+{% set out_items = items | selectattr("tx_type", "equalto", "OUT") | list %}
+{% set in_items  = items | selectattr("tx_type", "equalto", "IN")  | list %}
+{% set sort = sort | default("") %}
+{% set order = order | default("asc") %}
+
+<!-- 출고 -->
+{% set total_cost = namespace(value=0) %}
+{% for item in out_items %}{% if item.cost is not none %}{% set total_cost.value = total_cost.value + item.cost %}{% endif %}{% endfor %}
+<div class="section-card mb-4">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="page-section-title mb-0" style="font-size:1rem;">출고</span>
+        <span class="badge text-bg-secondary">{{ out_items|length }}건</span>
+    </div>
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0" style="table-layout:fixed; width:100%;">
+            <colgroup>
+                <col style="width:120px;">
+                <col style="width:160px;">
+                <col style="width:160px;">
+                <col style="width:260px;">
+                <col style="width:160px;">
+                <col style="width:80px;">
+                <col style="width:110px;">
+                <col style="width:120px;">
+                <col>
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>파트</th>
+                    <th onclick="sortTable('item_code')" class="sortable">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>업체</th>
+                    <th>수량</th>
+                    <th>단가</th>
+                    <th>비용</th>
+                    <th>비고</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in out_items %}
+                <tr>
+                    <td>
+                        <span class="badge rounded-pill {{ item.tx_badge_class }}">{{ item.tx_type_label }}</span>
+                    </td>
+                    <td><span class="part-pill">{{ item.part_label }}</span></td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')">{{ item.item_name }}</td>
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.qty_display }}</td>
+                    <td class="text-end">{% if item.unit_price is not none %}{{ "{:,}".format(item.unit_price | int) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td class="text-end">{% if item.cost is not none %}{{ "{:,}".format(item.cost) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td class="text-muted small">{{ item.note }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="py-3 text-center text-muted">출고 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+                {% if out_items %}
+                <tr class="table-light fw-bold">
+                    <td colspan="7" class="text-end">총 정산액</td>
+                    <td class="text-end">{{ "{:,}".format(total_cost.value) }}</td>
+                    <td></td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 입고 -->
+{% set in_total_cost = namespace(value=0) %}
+{% for item in in_items %}{% if item.cost is not none %}{% set in_total_cost.value = in_total_cost.value + item.cost %}{% endif %}{% endfor %}
+<div class="section-card">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="page-section-title mb-0" style="font-size:1rem;">입고</span>
+        <span class="badge text-bg-primary">{{ in_items|length }}건</span>
+    </div>
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0" style="table-layout:fixed; width:100%;">
+            <colgroup>
+                <col style="width:120px;">
+                <col style="width:160px;">
+                <col style="width:160px;">
+                <col style="width:260px;">
+                <col style="width:160px;">
+                <col style="width:80px;">
+                <col style="width:110px;">
+                <col style="width:120px;">
+                <col>
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>파트</th>
+                    <th onclick="sortTable('item_code')" class="sortable">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>업체</th>
+                    <th>수량</th>
+                    <th>단가</th>
+                    <th>비용</th>
+                    <th>비고</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in in_items %}
+                <tr>
+                    <td>
+                        <span class="badge rounded-pill {{ item.tx_badge_class }}">{{ item.tx_type_label }}</span>
+                    </td>
+                    <td><span class="part-pill">{{ item.part_label }}</span></td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')">{{ item.item_name }}</td>
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.qty_display }}</td>
+                    <td class="text-end">{% if item.unit_price is not none %}{{ "{:,}".format(item.unit_price | int) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td class="text-end">{% if item.cost is not none %}{{ "{:,}".format(item.cost) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td class="text-muted small">{{ item.note }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="py-3 text-center text-muted">입고 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+                {% if in_items %}
+                <tr class="table-light fw-bold">
+                    <td colspan="7" class="text-end">총 정산액</td>
+                    <td class="text-end">{{ "{:,}".format(in_total_cost.value) }}</td>
+                    <td></td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.item-name-cell.expandable').forEach(cell => {
+    cell.addEventListener('click', function () {
+        this.classList.toggle('expanded');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+===== 시약 관리 시스템 서버 환경 버전 정보 =====
+작성일: 2026-04-22
+
+[핵심 구성요소]
+Python       : 3.14.3  (Anaconda)
+PostgreSQL   : 18.3
+Django       : 6.0.4
+Waitress     : 3.0.2
+
+[주요 패키지]
+psycopg           3.3.3
+psycopg-binary    3.3.3
+openpyxl          3.1.5
+pandas            3.0.2
+numpy             2.4.4
+Jinja2            3.1.6
+django-ninja      1.6.2
+whitenoise        (최신)
+
+[복원 절차]
+1. PostgreSQL 18.x 설치
+2. Anaconda 설치 (Python 3.14)
+3. git clone https://github.com/parkion-ctrl/Reagent.git
+4. pip install -r requirements.txt
+5. psql -U postgres -c "CREATE DATABASE reagent;"
+6. pg_restore -U postgres -d reagent reagent_YYYYMMDD.dump
+7. start_server.bat 실행
+
+[포트]
+운영 서버: 8000
+테스트 서버: 8001
+
+[DB]
+운영: reagent
+테스트: reagent_test

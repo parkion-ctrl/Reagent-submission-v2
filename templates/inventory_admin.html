@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">재고 수정</div>
+    <p class="page-section-desc mb-3">현재 재고 셀을 직접 수정한 뒤 저장 버튼을 누르세요. 수정 내역은 입출고 이력에 자동 반영됩니다.</p>
+
+    <form method="get" action="/inventory-admin" class="filter-bar" style="flex-wrap: wrap; overflow-x: visible;">
+        <div class="filter-item" style="max-width: 180px; min-width: 180px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item" style="min-width: 220px; max-width: 280px;">
+            <label class="form-label custom-label">품목 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드 / 품목명">
+        </div>
+
+        <input type="hidden" name="equipment" value="{{ equipment }}">
+        <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+
+        <div class="filter-item short">
+            <button type="submit" class="btn btn-primary custom-btn w-100">조회</button>
+        </div>
+
+        <div class="filter-item short">
+            <a href="/inventory-admin" class="btn btn-outline-secondary custom-btn w-100">초기화</a>
+        </div>
+
+        <div class="filter-item short">
+            <button type="button" class="btn btn-success custom-btn w-100" onclick="openPreview()">저장</button>
+        </div>
+    </form>
+</div>
+
+<div class="section-card">
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>파트</th>
+                    <th>품목코드</th>
+                    <th onclick="sortTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>Lot No</th>
+                    <th>유효기간</th>
+                    <th>현재 재고</th>
+                    <th>변화값</th>
+                    <th>안전 재고</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if equipment %}filter-active-text{% endif %}">장비</span>
+                            <button type="button" class="filter-toggle {% if equipment %}active{% endif %}" onclick="toggleAdminFilterMenu(event, 'filter-admin-equipment')">▽</button>
+                        </div>
+                        <div id="filter-admin-equipment" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" action="/inventory-admin" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <select name="equipment" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for val in filter_options.equipments %}
+                                    <option value="{{ val }}" {% if equipment == val %}selected{% endif %}>{% if val == "__BLANK__" %}(공란){% else %}{{ val }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&reagent_type={{ reagent_type }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if reagent_type %}filter-active-text{% endif %}">시약구분</span>
+                            <button type="button" class="filter-toggle {% if reagent_type %}active{% endif %}" onclick="toggleAdminFilterMenu(event, 'filter-admin-reagent-type')">▽</button>
+                        </div>
+                        <div id="filter-admin-reagent-type" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" action="/inventory-admin" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <select name="reagent_type" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for item in filter_options.reagent_types %}
+                                    <option value="{{ item.value }}" {% if reagent_type == item.value %}selected{% endif %}>{{ item.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&equipment={{ equipment }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><span class="part-pill">{{ item.part_label }}</span></td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')">{{ item.item_name }}</td>
+                    <td>{{ item.lot_no }}</td>
+                    <td class="{{ item.expiry_class }}">{{ item.expiry_date }}</td>
+                    <td>
+                        <div class="stock-cell">
+                            <input type="number" class="stock-input"
+                                   data-id="{{ item.id }}"
+                                   data-name="{{ item.item_name }}"
+                                   data-lot="{{ item.lot_no }}"
+                                   data-original="{{ item.current_stock }}"
+                                   value="{{ item.current_stock }}"
+                                   min="0">
+                            <button type="button" class="revert-btn" title="되돌리기" style="display:none;" onclick="revertInput(this)">&#x21BA;</button>
+                        </div>
+                    </td>
+                    <td class="delta-cell text-center"></td>
+                    <td>{{ item.safety_stock }}</td>
+                    <td>{{ item.equipment }}</td>
+                    <td>{{ item.reagent_type }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="py-4 text-center text-muted">조회된 시약이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 미리보기 모달 -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">재고 수정 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">아래 항목의 재고가 수정됩니다. 이대로 저장하시겠습니까?</p>
+                <table class="table table-bordered align-middle mb-0" id="previewTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>품목명</th>
+                            <th>Lot No</th>
+                            <th class="text-center">기존 재고</th>
+                            <th class="text-center">변경 재고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+                <p id="noChanges" class="text-center text-muted py-3" style="display:none;">변경된 항목이 없습니다.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="confirmSaveBtn" onclick="confirmSave()">예</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">아니오</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stock-input {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 6px;
+    background: transparent;
+    text-align: right;
+    font-size: inherit;
+    color: inherit;
+    transition: border-color 0.15s, background 0.15s;
+}
+.stock-input:hover {
+    border-color: #ced4da;
+    background: #fff;
+}
+.stock-input:focus {
+    outline: none;
+    border-color: #0d6efd;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(13,110,253,.15);
+}
+.stock-input.increased {
+    border-color: #0d9488;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 2px rgba(13,148,136,.15);
+    color: #0d9488;
+    font-weight: 600;
+}
+.stock-input.decreased {
+    border-color: #9333ea;
+    background: #faf5ff;
+    box-shadow: 0 0 0 2px rgba(147,51,234,.15);
+    color: #9333ea;
+    font-weight: 600;
+}
+.stock-cell {
+    display: flex;
+    align-items: center;
+    min-width: 110px;
+}
+.revert-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 2px;
+    opacity: 0.7;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+.revert-btn:hover {
+    color: #dc3545;
+    opacity: 1;
+}
+.delta-cell {
+    font-weight: 600;
+    font-size: 0.9em;
+    min-width: 60px;
+}
+.delta-up {
+    color: #0d9488 !important;
+}
+.delta-down {
+    color: #9333ea !important;
+}
+</style>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+const CSRF = "{{ csrf_token }}";
+
+document.querySelectorAll('.stock-input').forEach(input => {
+    input.addEventListener('input', () => {
+        const revertBtn = input.nextElementSibling;
+        const val = parseFloat(input.value);
+        const orig = parseFloat(input.dataset.original);
+        const deltaCell = input.closest('tr').querySelector('.delta-cell');
+        input.classList.remove('increased', 'decreased');
+        deltaCell.textContent = '';
+        deltaCell.className = 'delta-cell text-center';
+        if (input.value.trim() !== input.dataset.original && !isNaN(val)) {
+            const diff = val - orig;
+            if (diff > 0) {
+                input.classList.add('increased');
+                deltaCell.textContent = '+' + diff;
+                deltaCell.classList.add('delta-up');
+            } else if (diff < 0) {
+                input.classList.add('decreased');
+                deltaCell.textContent = diff;
+                deltaCell.classList.add('delta-down');
+            }
+            revertBtn.style.display = '';
+        } else {
+            revertBtn.style.display = 'none';
+        }
+    });
+});
+
+function revertInput(btn) {
+    const input = btn.previousElementSibling;
+    input.value = input.dataset.original;
+    input.classList.remove('increased', 'decreased');
+    const deltaCell = btn.closest('tr').querySelector('.delta-cell');
+    deltaCell.textContent = '';
+    deltaCell.className = 'delta-cell text-center';
+    btn.style.display = 'none';
+}
+
+function getChangedInputs() {
+    return [...document.querySelectorAll('.stock-input.increased, .stock-input.decreased')].filter(input => {
+        const val = input.value.trim();
+        return val !== '' && val !== input.dataset.original && !isNaN(parseInt(val));
+    });
+}
+
+function openPreview() {
+    const changed = getChangedInputs();
+    const previewBody = document.getElementById('previewBody');
+    const noChanges = document.getElementById('noChanges');
+    const confirmBtn = document.getElementById('confirmSaveBtn');
+    const previewTable = document.getElementById('previewTable');
+
+    previewBody.innerHTML = '';
+
+    if (changed.length === 0) {
+        previewTable.style.display = 'none';
+        noChanges.style.display = 'block';
+        confirmBtn.style.display = 'none';
+    } else {
+        previewTable.style.display = '';
+        noChanges.style.display = 'none';
+        confirmBtn.style.display = '';
+        changed.forEach(input => {
+            const delta = parseFloat(input.value) - parseFloat(input.dataset.original);
+            const color = delta > 0 ? '#0d9488' : '#9333ea';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${input.dataset.name}</td>
+                <td>${input.dataset.lot || '-'}</td>
+                <td class="text-center">${input.dataset.original}</td>
+                <td class="text-center fw-bold" style="color:${color};">${input.value}</td>
+            `;
+            previewBody.appendChild(tr);
+        });
+    }
+
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+async function confirmSave() {
+    const changed = getChangedInputs();
+    const confirmBtn = document.getElementById('confirmSaveBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '저장 중...';
+
+    let failed = 0;
+    for (const input of changed) {
+        const fd = new FormData();
+        fd.append('current_stock', input.value.trim());
+        fd.append('csrfmiddlewaretoken', CSRF);
+        try {
+            const res = await fetch('/inventory-admin/' + input.dataset.id + '/edit/', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.ok) {
+                input.dataset.original = input.value.trim();
+                input.classList.remove('increased', 'decreased');
+                const deltaCell = input.closest('tr').querySelector('.delta-cell');
+                deltaCell.textContent = '';
+                deltaCell.className = 'delta-cell text-center';
+                input.nextElementSibling.style.display = 'none';
+            } else {
+                failed++;
+            }
+        } catch {
+            failed++;
+        }
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('previewModal')).hide();
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '예, 저장';
+
+    if (failed === 0) {
+        showBanner('success', '저장되었습니다.');
+    } else {
+        showBanner('danger', `${failed}건 저장에 실패했습니다.`);
+    }
+}
+
+function toggleAdminFilterMenu(event, id) {
+    event.stopPropagation();
+    const target = document.getElementById(id);
+    const button = event.currentTarget;
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (menu !== target) menu.classList.add('d-none');
+    });
+    if (!target.dataset.moved) {
+        document.body.appendChild(target);
+        target.dataset.moved = "1";
+    }
+    if (target.classList.contains('d-none')) {
+        target.classList.remove('d-none');
+        const rect = button.getBoundingClientRect();
+        const menuRect = target.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        let top = rect.bottom + 6;
+        if (viewportHeight - rect.bottom < menuRect.height + 12 && rect.top > menuRect.height + 12) {
+            top = rect.top - menuRect.height - 6;
+        }
+        target.style.position = 'fixed';
+        target.style.top = `${top}px`;
+        target.style.zIndex = '99999';
+        const viewportWidth = window.innerWidth;
+        const leftPos = rect.left + menuRect.width > viewportWidth - 8
+            ? Math.max(0, rect.right - menuRect.width)
+            : rect.left;
+        target.style.left = `${leftPos}px`;
+    } else {
+        target.classList.add('d-none');
+    }
+}
+
+document.addEventListener('click', function (e) {
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (!menu.contains(e.target)) menu.classList.add('d-none');
+    });
+});
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+}, true);
+window.addEventListener('resize', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+});
+
+function showBanner(type, msg) {
+    let banner = document.getElementById('save-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'save-banner';
+        banner.style.cssText = 'position:fixed;top:1.2rem;right:1.5rem;z-index:9999;min-width:200px;';
+        document.body.appendChild(banner);
+    }
+    banner.className = `alert alert-${type} py-2 px-3 shadow-sm`;
+    banner.textContent = msg;
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 2500);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">입출고 이력 수정</div>
+    <p class="page-section-desc mb-3">입고와 출고 기록을 조건별로 조회하고 수정·삭제합니다.</p>
+
+    {% if message %}
+    <div class="alert alert-success py-2">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+    {% endif %}
+
+    <form method="get" action="/history-admin" class="filter-bar" style="flex-wrap: wrap; overflow-x: visible;">
+        <div class="filter-item" style="max-width: 120px; min-width: 120px;">
+            <label class="form-label custom-label">구분</label>
+            <select name="tx_type" class="form-select custom-input">
+                <option value="">전체</option>
+                <option value="IN" {% if tx_type == "IN" %}selected{% endif %}>입고</option>
+                <option value="OUT" {% if tx_type == "OUT" %}selected{% endif %}>출고</option>
+            </select>
+        </div>
+
+        <div class="filter-item" style="max-width: 180px; min-width: 180px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item" style="min-width: 220px; max-width: 280px;">
+            <label class="form-label custom-label">품목 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드 / 품목명 / Lot No">
+        </div>
+
+        <div class="filter-item" style="min-width: 220px; max-width: 300px;">
+            <label class="form-label custom-label">조회 기간</label>
+            <div class="d-flex gap-2 align-items-center history-period-group flex-wrap">
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="1d" {% if period == "1d" %}checked{% endif %}>
+                    <span>1일</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="7d" {% if period == "7d" %}checked{% endif %}>
+                    <span>7일</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="1m" {% if period == "1m" %}checked{% endif %}>
+                    <span>1개월</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="6m" {% if period == "6m" %}checked{% endif %}>
+                    <span>6개월</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item short">
+            <button type="submit" class="btn btn-primary custom-btn w-100">조회</button>
+        </div>
+
+        <div class="filter-item short">
+            <a href="/history-admin?part=" class="btn btn-outline-secondary custom-btn w-100">초기화</a>
+        </div>
+    </form>
+</div>
+
+<div class="section-card">
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>거래일</th>
+                    <th>구분</th>
+                    <th>파트</th>
+                    <th>품목코드</th>
+                    <th>품목명</th>
+                    <th>Lot No</th>
+                    <th>업체</th>
+                    <th>시약 구분</th>
+                    <th>입고 수량</th>
+                    <th>출고 수량</th>
+                    <th>잔여 재고</th>
+                    <th>등록자</th>
+                    <th class="text-end">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.tx_date }}</td>
+                    <td>
+                        {% if item.billing_label %}
+                        <span class="badge rounded-pill {{ item.billing_badge }}">{{ item.billing_label }}</span>
+                        {% else %}
+                        <span class="badge rounded-pill {{ item.tx_badge_class }}">{{ item.tx_type_label }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="part-pill">{{ item.part_label }}</span>
+                    </td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')">{{ item.item_name }}</td>
+                    <td>{{ item.lot_no }}</td>
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.reagent_type_label }}</td>
+                    <td>{{ item.inbound_qty }}</td>
+                    <td>{{ item.outbound_qty }}</td>
+                    <td>{{ item.remaining_stock }}</td>
+                    <td>{{ item.created_by }}</td>
+                    <td class="text-end" style="white-space:nowrap;">
+                        <button class="btn btn-sm btn-outline-primary"
+                            onclick="openEditModal({{ item.id }}, '{{ item.tx_type }}', '{{ item.tx_date }}', {{ item.qty }})">
+                            수정
+                        </button>
+                        <form method="post" action="/history-admin/{{ item.id }}/delete/" class="d-inline"
+                            onsubmit="return confirm('이 이력을 삭제할까요?');">
+                            {{ csrf_input }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="12" class="py-4 text-center text-muted">등록된 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 수정 모달 -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">이력 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="editForm">
+                {{ csrf_input }}
+                <div class="modal-body row g-3">
+                    <div class="col-12">
+                        <label class="form-label">구분</label>
+                        <select name="tx_type" class="form-select" id="edit_tx_type">
+                            <option value="IN">입고</option>
+                            <option value="OUT">출고</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">거래일</label>
+                        <input type="date" name="tx_date" class="form-control" id="edit_tx_date" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">수량</label>
+                        <input type="number" name="qty" class="form-control" id="edit_qty" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge-teal {
+    background-color: #0d9488;
+    color: #fff;
+}
+</style>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+function openEditModal(id, txType, txDate, qty) {
+    document.getElementById('editForm').action = '/history-admin/' + id + '/edit/';
+    document.getElementById('edit_tx_type').value = txType;
+    document.getElementById('edit_tx_date').value = txDate;
+    document.getElementById('edit_qty').value = qty;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form[action="/history-admin"]');
+
+    document.querySelectorAll('.history-period-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function () {
+            if (this.checked) {
+                document.querySelectorAll('.history-period-checkbox').forEach(other => {
+                    if (other !== this) other.checked = false;
+                });
+                form.querySelector('input[name="date_from"]').value = '';
+                form.querySelector('input[name="date_to"]').value = '';
+                form.submit();
+            } else {
+                this.checked = true;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

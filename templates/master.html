@@ -1,0 +1,747 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">엑셀 일괄 등록</h5>
+        <a href="/master/upload-template" class="btn btn-sm btn-outline-secondary">예시 파일 다운로드</a>
+    </div>
+
+    <form action="/master/upload-preview" method="post" enctype="multipart/form-data" class="master-upload-form">
+        <div>
+            <label for="excel_file" class="form-label">업로드 파일</label>
+        </div>
+        <div class="input-group master-upload-group">
+            <input type="file" class="form-control" id="excel_file" name="file" accept=".xlsx,.csv" required>
+            <button type="submit" class="btn btn-primary">미리보기</button>
+        </div>
+        <div class="form-text">
+            <div>1) 예시 파일을 다운로드 한 후, 헤더는 수정하지 말아주세요.</div>
+            <div>2) 유해물질 여부(Hazardous) 칼럼의 경우 반드시 Y, N으로만 입력해야 합니다. 등급(hazardous_grade)의 경우 유해물질이 아닌 경우 공란으로 비워두고, 유해물질인 경우 1, 2, 3 중 해당하는 등급값을 숫자로만 입력해주세요.</div>
+            <div>3) 파트(Part) 칼럼의 경우 {% for code, name in part_map.items() %}{{ code }}{% if not loop.last %}, {% endif %}{% endfor %} 중 하나로만 입력해주세요 ({% for code, name in part_map.items() %}{{ code }}={{ name }}{% if not loop.last %}, {% endif %}{% endfor %}). 파트명의 추가 및 변경이 필요할 경우 관리자 페이지를 이용해 주세요.</div>
+            <div>4) 시약 종류(Reagent_type) 칼럼의 경우 1, 2, 3, 4, 5 중 하나로만 입력해주세요. 각각 1=Reagent, 2=Control, 3=Calibrator, 4=Supply, 5=Extra에 대응합니다.</div>
+            <div>5) 품목명, 품목코드를 제외한 나머지 칸은 공란으로 두어도 괜찮습니다. Lot no가 없는 경우 공란으로 두시면 됩니다.</div>
+            <div>6) 날짜는 YYYYMMDD 형식으로, - 표시 없이 8자리 일련번호 형식으로 입력해 주세요.</div>
+            <div>7) 미리보기 후 이상이 없으면 최종 업로드를 진행해주세요.</div>
+        </div>
+    </form>
+</div>
+
+{% if upload_error %}
+<div class="alert alert-danger">{{ upload_error }}</div>
+{% endif %}
+
+{% if preview_mode %}
+<div class="section-card mb-4">
+    <h5 class="mb-3">업로드 미리보기</h5>
+    <div class="mb-2">총 업로드 대상: <strong>{{ total_count }}</strong>건</div>
+    <div class="mb-2">실제 업로드 예정: <strong>{{ valid_count }}</strong>건</div>
+
+    {% if duplicate_count > 0 %}
+    <div class="alert alert-warning">
+        중복된 품목이 있습니다.
+        {% for name in duplicate_names %}
+        <div>({{ name }}) 품목은 중복입니다.</div>
+        {% endfor %}
+        <div class="mt-2">중복 데이터는 제외하고 나머지 데이터만 업로드됩니다.</div>
+    </div>
+    {% endif %}
+
+    {% if invalid_count > 0 %}
+    <div class="alert alert-danger">
+        형식 오류가 있는 품목이 있습니다.
+        {% for msg in invalid_messages %}
+        <div>{{ msg }}</div>
+        {% endfor %}
+        <div class="mt-2">오류 데이터는 제외하고 정상 데이터만 업로드 대상에 포함됩니다.</div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle preview-table">
+            <thead>
+                <tr>
+                    <th>유해물질</th>
+                    <th>파트</th>
+                    <th>품목코드</th>
+                    <th>품목명</th>
+                    <th>Lot No</th>
+                    <th>유효기간</th>
+                    <th>규격</th>
+                    <th>단위</th>
+                    <th>시약구분</th>
+                    <th>장비</th>
+                    <th>업체</th>
+                    <th>안전재고</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr class="{% if row.status == '오류' %}table-warning{% endif %}">
+                    <td>{{ row.hazardous }}</td>
+                    <td>
+                        <span
+                            class="part-pill"
+                            {% if row.status == "오류" %}style="background:#e5e7eb !important; color:#111827 !important; border-color:#9ca3af !important;"{% endif %}
+                        >{{ row.part_label or row.part }}</span>
+                    </td>
+                    <td>{{ row.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ row.item_name }}">{{ row.item_name }}</td>
+                    <td>{{ row.lot_no }}</td>
+                    <td>{{ row.expiry_date }}</td>
+                    <td>{{ row.spec }}</td>
+                    <td>{{ row.unit }}</td>
+                    <td>{{ row.reagent_type }}</td>
+                    <td>{{ row.equipment }}</td>
+                    <td>{{ row.vendor }}</td>
+                    <td>{{ row.safety_stock }}</td>
+                    <td>
+                        {% if row.status == "오류" %}
+                        <span class="text-danger fw-semibold">오류</span>
+                        {% else %}
+                        업로드 예정
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form action="/master/upload-confirm" method="post" class="mt-3 d-flex gap-2">
+        <input type="hidden" name="upload_data" value='{{ preview_json|safe }}'>
+        <button type="submit" class="btn btn-success" onclick="return confirm('이대로 업로드하시겠습니까?');">최종 업로드</button>
+        <a href="/master" class="btn btn-danger">취소</a>
+    </form>
+</div>
+{% endif %}
+
+{% if upload_done %}
+<div class="alert alert-success">
+    총 업로드 {{ total_uploaded }}건 / 성공 {{ success_count }}건 / 실패 {{ fail_count }}건
+</div>
+{% endif %}
+
+{% if fail_messages %}
+<div class="alert alert-danger">
+    {% for msg in fail_messages %}
+    <div>{{ msg }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0 fw-semibold">품목 마스터 관리</h3>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/master?show_form=1&part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}" class="btn btn-primary">새 품목 등록</a>
+            <button type="button" class="btn btn-outline-primary" onclick="handleMasterSelectionAction('edit')">수정</button>
+            <button type="button" class="btn btn-outline-success" onclick="handleMasterSelectionAction('dispose')">폐기</button>
+            <button type="button" class="btn btn-outline-danger" onclick="handleMasterSelectionAction('delete')">삭제</button>
+            {% if show_form %}
+            <a href="/master?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}" class="btn btn-outline-secondary">등록 닫기</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="get" action="/master" class="filter-bar">
+        <div class="col-lg-3">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label class="form-label custom-label">품목코드 / 품목명 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드, 품목명 또는 Lot No를 입력하세요">
+        </div>
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+        <div class="col-lg-4 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-primary px-4 py-2">조회</button>
+            <a href="/master?part=" class="btn btn-outline-secondary px-4 py-2">초기화</a>
+            <button type="button" class="btn btn-success px-4 py-2" onclick="exportExcel('/master/export')">엑셀</button>
+        </div>
+    </form>
+</div>
+
+{% if show_form %}
+<div class="section-card mb-4">
+    <h3 class="mb-3">{% if edit_item %}품목 수정{% else %}새 품목 등록{% endif %}</h3>
+    <form method="post" action="{% if edit_item %}/master/{{ edit_item.id }}/edit{% else %}/master/create{% endif %}" class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">유해물질</label>
+            <select name="hazardous" class="form-select" required>
+                <option value="N" {% if edit_item and edit_item.hazardous in ['N', '0', 0, 'n', 'No', 'no', '아니오', '무'] %}selected{% endif %}>N</option>
+                <option value="Y" {% if edit_item and edit_item.hazardous in ['Y', '1', 1, 'y', 'Yes', 'yes', '예', '사용'] %}selected{% endif %}>Y</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">등급</label>
+            <select name="hazardous_grade" class="form-select">
+                <option value=""></option>
+                <option value="1" {% if (edit_item.hazardous_grade if edit_item else '') == '1' %}selected{% endif %}>1</option>
+                <option value="2" {% if (edit_item.hazardous_grade if edit_item else '') == '2' %}selected{% endif %}>2</option>
+                <option value="3" {% if (edit_item.hazardous_grade if edit_item else '') == '3' %}selected{% endif %}>3</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">파트</label>
+            <select name="part" class="form-select" id="master-form-part" required onchange="updateMasterEquipment(this.value)">
+                <option value="">선택</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if edit_item and edit_item.part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">품목코드</label>
+            <input type="text" name="item_code" class="form-control" value="{{ edit_item.item_code if edit_item else '' }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">품목명</label>
+            <input type="text" name="item_name" class="form-control" value="{{ edit_item.item_name if edit_item else '' }}" required>
+        </div>
+        {% if current_schema == 'path' %}
+        <div class="col-md-2">
+            <label class="form-label">CAS-NO</label>
+            <input type="text" name="cas_no" class="form-control" value="{{ edit_item.cas_no if edit_item else '' }}">
+        </div>
+        {% endif %}
+        <div class="col-md-3">
+            <label class="form-label">Lot No</label>
+            <input type="text" name="lot_no" class="form-control" value="{{ edit_item.lot_no if edit_item else '' }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">유효기간</label>
+            <input type="date" name="expiry_date" class="form-control" value="{{ edit_item.expiry_date if edit_item else '' }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">규격</label>
+            <input type="text" name="spec" class="form-control" value="{{ edit_item.spec if edit_item else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">단위</label>
+            <input type="text" name="unit" class="form-control" value="{{ edit_item.unit if edit_item else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">시약 구분</label>
+            <select name="reagent_type" class="form-select" required>
+                <option value="1" {% if edit_item and edit_item.reagent_type|string == '1' %}selected{% endif %}>Reagent</option>
+                <option value="2" {% if edit_item and edit_item.reagent_type|string == '2' %}selected{% endif %}>Control</option>
+                <option value="3" {% if edit_item and edit_item.reagent_type|string == '3' %}selected{% endif %}>Calibrator</option>
+                <option value="4" {% if edit_item and edit_item.reagent_type|string == '4' %}selected{% endif %}>Supply</option>
+                <option value="5" {% if edit_item and edit_item.reagent_type|string == '5' %}selected{% endif %}>Extra</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">장비</label>
+            <select name="equipment" id="master-form-equipment" class="form-select">
+                <option value=""></option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">업체</label>
+            <select name="vendor" class="form-select">
+                <option value=""></option>
+                {% for v in vendor_options %}
+                <option value="{{ v }}" {% if edit_item and edit_item.vendor == v %}selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">안전재고</label>
+            <input type="number" name="safety_stock" class="form-control" value="{{ edit_item.safety_stock if edit_item else 0 }}" min="0" required>
+        </div>
+        <div class="col-md-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{% if edit_item %}수정{% else %}등록{% endif %}</button>
+            {% if edit_item %}
+            <a href="/master?part={{ part }}&q={{ q }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&equipment={{ equipment }}&vendor={{ vendor }}&hazardous={{ hazardous }}" class="btn btn-outline-secondary">수정 취소</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+<script>
+(function(){
+    var equipByPart = {{ equipment_by_part_json | safe }};
+    function updateMasterEquipment(part, currentVal) {
+        var sel = document.getElementById('master-form-equipment');
+        if (!sel) return;
+        var prev = (currentVal !== undefined) ? currentVal : sel.value;
+        var opts = [].concat(equipByPart[part] || [], (part && equipByPart['']) || (!part ? Object.values(equipByPart).flat() : []));
+        // 중복 제거
+        opts = opts.filter(function(v, i, a){ return a.indexOf(v) === i; });
+        sel.innerHTML = '<option value=""></option>';
+        opts.forEach(function(name){
+            var o = document.createElement('option');
+            o.value = name; o.textContent = name;
+            if (name === prev) o.selected = true;
+            sel.appendChild(o);
+        });
+    }
+    window.updateMasterEquipment = updateMasterEquipment;
+    document.addEventListener('DOMContentLoaded', function(){
+        var partSel = document.getElementById('master-form-part');
+        if (!partSel) return;
+        var initEquip = "{{ edit_item.equipment if edit_item else '' }}";
+        updateMasterEquipment(partSel.value, initEquip);
+    });
+})();
+</script>
+{% endif %}
+
+<div class="section-card mb-3 py-2 px-3" style="border-radius:8px;">
+    <div class="d-flex align-items-center gap-3">
+        <span class="text-muted small">테이블에서 보고 싶은 column만 보이게 하거나, column의 순서를 변경할 수 있습니다. 한 번 설정해두면 다음 번에도 같은 계정으로 로그인 시 반영됩니다.</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="colCustToggle()">커스터마이즈</button>
+    </div>
+    <div id="col-cust-panel" class="d-none mt-2 pt-2 border-top">
+        <div id="col-cust-checkboxes" class="d-flex flex-wrap"></div>
+        <div class="d-flex gap-2 mt-2">
+            <button id="col-cust-save" type="button" class="btn btn-sm btn-primary">저장</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="colCustToggle()">닫기</button>
+        </div>
+    </div>
+</div>
+
+<div class="section-card table-card">
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="master-select-all" aria-label="전체 선택">
+                    </th>
+                    <th data-col="part" data-col-label="파트">파트</th>
+                    <th class="filterable-th" data-col="is_new_lot" data-col-label="New Lot">
+                        <div class="th-inner">
+                            <span class="{% if is_new_lot %}filter-active-text{% endif %}">New Lot</span>
+                            <button type="button" class="filter-toggle {% if is_new_lot %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-new-lot')">▽</button>
+                        </div>
+                        <div id="filter-master-new-lot" class="filter-menu filter-menu-compact d-none" style="min-width: fit-content; width: fit-content; max-width: 200px; white-space: nowrap;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="hazardous" value="{{ hazardous }}">
+                                <select name="is_new_lot" class="form-select form-select-sm mb-2" style="width: auto;">
+                                    <option value="">전체</option>
+                                    {% for item in filter_options.new_lot_options %}
+                                    <option value="{{ item.value }}" {% if is_new_lot == item.value %}selected{% endif %}>{{ item.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-flex gap-1" style="width: auto;">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&equipment={{ equipment }}&vendor={{ vendor }}&hazardous={{ hazardous }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th" data-col="hazardous" data-col-label="유해물질">
+                        <div class="th-inner">
+                            <span class="{% if hazardous %}filter-active-text{% endif %}">유해물질</span>
+                            <button type="button" class="filter-toggle {% if hazardous %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-hazardous')">▽</button>
+                        </div>
+                        <div id="filter-master-hazardous" class="filter-menu filter-menu-compact d-none" style="min-width: fit-content; width: fit-content; max-width: 200px; white-space: nowrap;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <select name="hazardous" class="form-select form-select-sm mb-2" style="width: auto;">
+                                    <option value="">전체</option>
+                                    {% for item in filter_options.hazardous_options %}
+                                    <option value="{{ item.value }}" {% if hazardous == item.value %}selected{% endif %}>{{ item.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-flex gap-1" style="width: auto;">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&equipment={{ equipment }}&vendor={{ vendor }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th" data-col="hazardous_grade" data-col-label="등급">
+                        <div class="th-inner">
+                            <span class="{% if hazardous_grade %}filter-active-text{% endif %}">등급</span>
+                            <button type="button" class="filter-toggle {% if hazardous_grade %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-hazardous-grade')">▽</button>
+                        </div>
+                        <div id="filter-master-hazardous-grade" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="hazardous" value="{{ hazardous }}">
+                                <input type="hidden" name="is_new_lot" value="{{ is_new_lot }}">
+                                <select name="hazardous_grade" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for val in filter_options.hazardous_grade_options %}
+                                    <option value="{{ val }}" {% if hazardous_grade == val %}selected{% endif %}>{% if val == "__BLANK__" %}(공란){% else %}{{ val }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&equipment={{ equipment }}&vendor={{ vendor }}&hazardous={{ hazardous }}&is_new_lot={{ is_new_lot }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th onclick="sortTable('item_code')" class="sortable" data-col="item_code" data-col-label="품목코드" data-col-locked="true">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('item_name')" class="sortable" data-col="item_name" data-col-label="품목명" data-col-locked="true">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    {% if current_schema == 'path' %}<th data-col="cas_no" data-col-label="CAS-NO">CAS-NO</th>{% endif %}
+                    <th data-col="lot_no" data-col-label="Lot No">Lot No</th>
+                    <th onclick="sortTable('expiry_date')" class="sortable" data-col="expiry_date" data-col-label="유효기간">유효기간 <span class="sort-icon {% if sort == 'expiry_date' %}active{% endif %}">{% if sort == "expiry_date" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('registered_at')" class="sortable" data-col="registered_at" data-col-label="등록 일시">등록 일시 <span class="sort-icon {% if sort == 'registered_at' %}active{% endif %}">{% if sort == "registered_at" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th data-col="spec" data-col-label="규격">규격</th>
+                    <th data-col="unit" data-col-label="단위">단위</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if reagent_type %}filter-active-text{% endif %}">시약 구분</span>
+                            <button type="button" class="filter-toggle {% if reagent_type %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-reagent-type')">▽</button>
+                        </div>
+                        <div id="filter-master-reagent-type" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="hazardous" value="{{ hazardous }}">
+                                <select name="reagent_type" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for item in filter_options.reagent_types %}
+                                    <option value="{{ item.value }}" {% if reagent_type == item.value %}selected{% endif %}>{{ item.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&equipment={{ equipment }}&vendor={{ vendor }}&hazardous={{ hazardous }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th" data-col="equipment" data-col-label="장비">
+                        <div class="th-inner">
+                            <span class="{% if equipment %}filter-active-text{% endif %}">장비</span>
+                            <button type="button" class="filter-toggle {% if equipment %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-equipment')">▽</button>
+                        </div>
+                        <div id="filter-master-equipment" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="hazardous" value="{{ hazardous }}">
+                                <select name="equipment" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for val in filtered_equipments %}
+                                    <option value="{{ val }}" {% if equipment == val %}selected{% endif %}>{{ val }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&vendor={{ vendor }}&hazardous={{ hazardous }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th" data-col="vendor" data-col-label="업체">
+                        <div class="th-inner">
+                            <span class="{% if vendor %}filter-active-text{% endif %}">업체</span>
+                            <button type="button" class="filter-toggle {% if vendor %}active{% endif %}" onclick="toggleFilterMenu(event, 'filter-master-vendor')">▽</button>
+                        </div>
+                        <div id="filter-master-vendor" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="show_form" value="{{ show_form }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <input type="hidden" name="hazardous" value="{{ hazardous }}">
+                                <select name="vendor" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for val in filtered_vendors %}
+                                    <option value="{{ val }}" {% if vendor == val %}selected{% endif %}>{{ val }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&show_form={{ show_form }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}&equipment={{ equipment }}&hazardous={{ hazardous }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th onclick="sortTable('safety_stock')" class="sortable" data-col="safety_stock" data-col-label="안전재고">안전재고 <span class="sort-icon {% if sort == 'safety_stock' %}active{% endif %}">{% if sort == "safety_stock" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="selectable-row" data-item-id="{{ item.id }}">
+                    <td>
+                        <input type="checkbox" class="master-row-checkbox" value="{{ item.id }}" aria-label="시약 선택">
+                    </td>
+                    <td>
+                        <span class="part-pill" {% if item.item_name.endswith(' (New)') %}style="background:#dcfce7 !important; color:#166534 !important; border-color:#86efac !important;"{% endif %}>{{ item.part_label or item.part }}</span>
+                    </td>
+                    <td>{{ item.is_new_lot }}</td>
+                    <td>{{ item.hazardous }}</td>
+                    <td>{{ item.hazardous_grade }}</td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')" {% if item.item_name.endswith(' (New)') %}style="color:#166534 !important; font-weight:600 !important;"{% endif %}>{{ item.item_name }}</td>
+                    {% if current_schema == 'path' %}<td>{{ item.cas_no or '' }}</td>{% endif %}
+                    <td>{{ item.lot_no }}</td>
+                    <td>{{ item.expiry_date }}</td>
+                    <td>{{ item.registered_at }}</td>
+                    <td>{{ item.spec }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.reagent_type }}</td>
+                    <td>{{ item.equipment }}</td>
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.safety_stock }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form id="master-action-form" method="post" style="display:none;"></form>
+
+<!-- 삭제 비밀번호 확인 모달 -->
+<div class="modal fade" id="deletePasswordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title text-danger fw-bold">삭제 확인</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="delete-modal-count-msg" class="small mb-2"></p>
+        <label class="form-label small">현재 계정 비밀번호를 입력하세요</label>
+        <input type="password" id="delete-confirm-password" class="form-control" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitDeleteWithPassword()">
+        <div id="delete-pw-error" class="text-danger small mt-1 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteWithPassword()">삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleFilterMenu(event, id) {
+    event.stopPropagation();
+    const target = document.getElementById(id);
+    const button = event.currentTarget;
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (menu !== target) menu.classList.add('d-none');
+    });
+    if (!target.dataset.moved) {
+        document.body.appendChild(target);
+        target.dataset.moved = "1";
+    }
+    if (target.classList.contains('d-none')) {
+        target.classList.remove('d-none');
+        const rect = button.getBoundingClientRect();
+        const menuRect = target.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        let top = rect.bottom + 6;
+        if (spaceBelow < menuRect.height + 12 && spaceAbove > menuRect.height + 12) {
+            top = rect.top - menuRect.height - 6;
+        }
+        target.style.position = 'fixed';
+        target.style.top = `${top}px`;
+        target.style.left = `${rect.left}px`;
+        target.style.zIndex = '99999';
+    } else {
+        target.classList.add('d-none');
+    }
+}
+
+function getSelectedMasterIds() {
+    return Array.from(document.querySelectorAll('.master-row-checkbox:checked')).map(cb => cb.value);
+}
+
+function updateMasterRowHighlights() {
+    document.querySelectorAll('.selectable-row').forEach(row => {
+        const checkbox = row.querySelector('.master-row-checkbox');
+        const isChecked = checkbox && checkbox.checked;
+        row.classList.toggle('selected-row', isChecked);
+        row.querySelectorAll('td').forEach(cell => {
+            cell.style.backgroundColor = isChecked ? '#e8f1ff' : '';
+        });
+    });
+    const selectAllCheckbox = document.getElementById('master-select-all');
+    if (selectAllCheckbox) {
+        const allCheckboxes = Array.from(document.querySelectorAll('.master-row-checkbox'));
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.every(checkbox => checkbox.checked);
+    }
+}
+
+function handleMasterSelectionAction(action) {
+    const selectedIds = getSelectedMasterIds();
+    if (action === 'edit') {
+        if (selectedIds.length === 0) {
+            alert('수정할 시약을 선택해 주세요');
+            return;
+        }
+        if (selectedIds.length > 1) {
+            alert('수정은 한 번에 한 항목만 가능합니다. 체크박스를 1개만 선택해주세요');
+            return;
+        }
+        const selectedId = selectedIds[0];
+        const url = new URL(window.location.href);
+        url.searchParams.set('edit_id', selectedId);
+        url.searchParams.set('show_form', '1');
+        window.location.href = url.toString();
+        return;
+    }
+
+    if (selectedIds.length === 0) {
+        alert(`${action === 'dispose' ? '폐기' : '삭제'}할 시약을 선택해 주세요`);
+        return;
+    }
+
+    const form = document.getElementById('master-action-form');
+    const count = selectedIds.length;
+
+    if (action === 'delete') {
+        document.getElementById('delete-modal-count-msg').textContent = `총 ${count}개의 항목을 삭제합니다.`;
+        document.getElementById('delete-confirm-password').value = '';
+        document.getElementById('delete-pw-error').classList.add('d-none');
+        window._pendingDeleteIds = selectedIds;
+        new bootstrap.Modal(document.getElementById('deletePasswordModal')).show();
+        setTimeout(() => document.getElementById('delete-confirm-password').focus(), 400);
+        return;
+    }
+
+    const confirmed = confirm(`총 ${count}개의 항목을 폐기하는 게 맞습니까?`);
+    if (!confirmed) return;
+
+    form.innerHTML = '';
+    form.action = '/master/bulk-dispose';
+    selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    form.submit();
+}
+
+function submitDeleteWithPassword() {
+    const pw = document.getElementById('delete-confirm-password').value.trim();
+    const errEl = document.getElementById('delete-pw-error');
+    if (!pw) {
+        errEl.textContent = '비밀번호를 입력해 주세요.';
+        errEl.classList.remove('d-none');
+        return;
+    }
+    errEl.classList.add('d-none');
+
+    const formData = new FormData();
+    formData.append('confirm_password', pw);
+    window._pendingDeleteIds.forEach(id => formData.append('item_ids', id));
+
+    const btn = document.querySelector('#deletePasswordModal .btn-danger');
+    btn.disabled = true;
+    btn.textContent = '처리 중...';
+
+    fetch('/master/bulk-delete', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('deletePasswordModal')).hide();
+                const params = new URLSearchParams(window.location.search);
+                params.delete('message'); params.delete('error');
+                params.set('message', data.message);
+                window.location.href = '/master/?' + params.toString();
+            } else {
+                errEl.textContent = data.error;
+                errEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = '삭제';
+            }
+        })
+        .catch(() => {
+            errEl.textContent = '오류가 발생했습니다. 다시 시도해 주세요.';
+            errEl.classList.remove('d-none');
+            btn.disabled = false;
+            btn.textContent = '삭제';
+        });
+}
+
+document.addEventListener('click', function (e) {
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (!menu.contains(e.target)) menu.classList.add('d-none');
+    });
+});
+
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+}, true);
+
+window.addEventListener('resize', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.item-name-cell.expandable').forEach(cell => {
+        cell.addEventListener('click', function () {
+            this.classList.toggle('expanded');
+        });
+    });
+    document.querySelectorAll('.master-row-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateMasterRowHighlights);
+    });
+    const selectAllCheckbox = document.getElementById('master-select-all');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function () {
+            document.querySelectorAll('.master-row-checkbox').forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateMasterRowHighlights();
+        });
+    }
+    updateMasterRowHighlights();
+    ColCust.init('.inventory-table', 'master', {{ request.user.id if request.user.is_authenticated else 0 }});
+});
+</script>
+{% endblock %}

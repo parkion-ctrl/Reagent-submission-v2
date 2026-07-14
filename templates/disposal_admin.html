@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">폐기 관리</div>
+    <p class="page-section-desc mb-3">폐기된 시약 목록을 조회하고, 필요 시 폐기를 취소할 수 있습니다. 폐기 취소 시 재고는 0으로 초기화되며 마스터/재고 탭에 다시 표시됩니다.</p>
+
+    {% if message %}
+    <div class="alert alert-success py-2">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+    {% endif %}
+
+    <form method="get" action="/disposal-admin" class="filter-bar" style="flex-wrap:wrap; overflow-x:visible;">
+        <div class="filter-item" style="max-width:180px; min-width:180px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item" style="min-width:220px; max-width:300px;">
+            <label class="form-label custom-label">품목 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드 / 품목명 / Lot No">
+        </div>
+        <div class="filter-item short">
+            <button type="submit" class="btn btn-primary custom-btn w-100">조회</button>
+        </div>
+        <div class="filter-item short">
+            <a href="/disposal-admin/" class="btn btn-outline-secondary custom-btn w-100">초기화</a>
+        </div>
+    </form>
+</div>
+
+<div class="section-card">
+    <form method="post" action="/disposal-admin/cancel/" id="cancelForm">
+        {{ csrf_input }}
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <button type="submit" class="btn btn-sm btn-danger"
+                onclick="return confirm('선택한 항목의 폐기를 취소할까요?\n재고는 0으로 초기화됩니다.')">
+                폐기 취소
+            </button>
+            <span class="text-muted small" id="selectedCount">선택된 항목: 0개</span>
+        </div>
+        <div class="table-scroll">
+            <table class="table inventory-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">
+                            <input type="checkbox" id="checkAll" class="form-check-input">
+                        </th>
+                        <th>파트</th>
+                        <th>품목코드</th>
+                        <th>품목명</th>
+                        <th>Lot No</th>
+                        <th>유효기간</th>
+                        <th>규격</th>
+                        <th>단위</th>
+                        <th>시약 구분</th>
+                        <th>업체</th>
+                        <th>폐기일</th>
+                        <th>폐기 사유</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input row-check" name="item_ids" value="{{ item.id }}">
+                        </td>
+                        <td><span class="part-pill">{{ item.part_label }}</span></td>
+                        <td>{{ item.item_code }}</td>
+                        <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')">{{ item.item_name }}</td>
+                        <td>{{ item.lot_no }}</td>
+                        <td>{{ item.expiry_date }}</td>
+                        <td>{{ item.spec }}</td>
+                        <td>{{ item.unit }}</td>
+                        <td>{{ item.reagent_type }}</td>
+                        <td>{{ item.vendor }}</td>
+                        <td>{{ item.disposed_at }}</td>
+                        <td>{{ item.disposal_reason }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="py-4 text-center text-muted">폐기된 시약이 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('checkAll').addEventListener('change', function() {
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = this.checked);
+    updateCount();
+});
+document.querySelectorAll('.row-check').forEach(cb => cb.addEventListener('change', updateCount));
+function updateCount() {
+    var n = document.querySelectorAll('.row-check:checked').length;
+    document.getElementById('selectedCount').textContent = '선택된 항목: ' + n + '개';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시약 관리 시스템</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand-wrap">
+            <div class="brand-badge">R</div>
+            <div>
+                <div class="brand-title">시약 관리 시스템</div>
+                <div class="brand-subtitle">Reagent Inventory</div>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="/inbound" class="nav-item {% if active_menu == 'inbound' %}active{% endif %}">
+                <span class="nav-icon">+</span>
+                <span>시약 입고</span>
+            </a>
+            <a href="/outbound" class="nav-item {% if active_menu == 'outbound' %}active{% endif %}">
+                <span class="nav-icon">-</span>
+                <span>시약 출고</span>
+            </a>
+            <a href="/history" class="nav-item {% if active_menu == 'history' %}active{% endif %}">
+                <span class="nav-icon">≡</span>
+                <span>입출고 이력 조회</span>
+            </a>
+            <a href="/billing" class="nav-item {% if active_menu == 'billing' %}active{% endif %}">
+                <span class="nav-icon">₩</span>
+                <span>시약 청구</span>
+            </a>
+            <a href="/reagent-history" class="nav-item {% if active_menu == 'reagent_history' %}active{% endif %}">
+                <span class="nav-icon">≣</span>
+                <span>시약 현황 조회</span>
+            </a>
+            <a href="/inventory" class="nav-item {% if active_menu == 'inventory' %}active{% endif %}">
+                <span class="nav-icon">◻</span>
+                <span>시약 재고</span>
+            </a>
+            <a href="/master" class="nav-item {% if active_menu == 'master' %}active{% endif %}">
+                <span class="nav-icon">▣</span>
+                <span>시약 마스터</span>
+            </a>
+            {% if request.user.is_authenticated and request.user.is_staff %}
+            <a href="/admin-panel" class="nav-item {% if active_menu == 'admin_panel' %}active{% endif %}">
+                <span class="nav-icon">⚙</span>
+                <span>관리자 페이지</span>
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <div class="main-area">
+        <header class="topbar">
+            {% if request.user.is_authenticated %}
+            <div class="topbar-login-strip">
+                <span class="topbar-login-label">접속 중인 ID</span>
+                <span class="topbar-login-name">{{ request.user.username }}</span>
+                <span class="topbar-login-label">접속 중인 부서</span>
+                {% if is_superuser_session %}
+                <select class="dept-select" id="deptSelect"
+                        onchange="switchDept(this.value)">
+                    {% for dept_name in superuser_dept_list %}
+                    <option value="{{ dept_name }}"
+                            {% if dept_name == user_department %}selected{% endif %}>
+                        {{ dept_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <span class="topbar-login-name">{{ user_department }}</span>
+                {% endif %}
+                <div class="topbar-login-spacer"></div>
+                <a href="/logout/" class="topbar-logout-btn">로그아웃</a>
+            </div>
+            {% endif %}
+            <div>
+                <div class="topbar-title">
+                    {% if active_menu == 'inventory' %}시약 재고
+                    {% elif active_menu == 'inbound' %}시약 입고
+                    {% elif active_menu == 'outbound' %}시약 출고
+                    {% elif active_menu == 'history' %}입출고 이력 조회
+                    {% elif active_menu == 'reagent_history' %}시약 현황 조회
+                    {% elif active_menu == 'master' %}시약 마스터
+                    {% elif active_menu == 'admin_panel' %}관리자 허브
+                    {% else %}시약 관리 시스템
+                    {% endif %}
+                </div>
+                <div class="topbar-subtitle">검사실 시약 운영을 위한 재고 관리 시스템입니다.</div>
+            </div>
+        </header>
+
+        <main class="content-area">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+<script>
+function sortTable(column) {
+    const url = new URL(window.location.href);
+    const currentSort = url.searchParams.get("sort");
+    const currentOrder = url.searchParams.get("order");
+    let newOrder = "asc";
+
+    if (currentSort === column && currentOrder === "asc") {
+        newOrder = "desc";
+    }
+
+    url.searchParams.set("sort", column);
+    url.searchParams.set("order", newOrder);
+    window.location.href = url.toString();
+}
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".item-name-cell.expandable").forEach(cell => {
+        cell.addEventListener("click", function () {
+            this.classList.toggle("expanded");
+        });
+    });
+
+    /* 테이블 상단 스크롤바 미러 */
+    document.querySelectorAll(".table-scroll").forEach(function(wrap) {
+        var mirror = document.createElement("div");
+        mirror.style.cssText = "overflow-x:auto; overflow-y:hidden; height:12px; margin-bottom:2px;";
+        var spacer = document.createElement("div");
+        spacer.style.height = "1px";
+        mirror.appendChild(spacer);
+        wrap.parentNode.insertBefore(mirror, wrap);
+
+        function syncWidth() {
+            spacer.style.width = wrap.scrollWidth + "px";
+            mirror.style.width = wrap.offsetWidth + "px";
+        }
+        syncWidth();
+        new ResizeObserver(syncWidth).observe(wrap);
+
+        var syncing = false;
+        mirror.addEventListener("scroll", function() {
+            if (syncing) return; syncing = true;
+            wrap.scrollLeft = mirror.scrollLeft;
+            syncing = false;
+        });
+        wrap.addEventListener("scroll", function() {
+            if (syncing) return; syncing = true;
+            mirror.scrollLeft = wrap.scrollLeft;
+            syncing = false;
+        });
+    });
+});
+
+function switchDept(dept) {
+    var next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = "/set-dept/?dept=" + encodeURIComponent(dept) + "&next=" + next;
+}
+
+
+function exportExcel(baseUrl) {
+    const form = document.querySelector('form');
+    const params = new URLSearchParams(form ? new FormData(form) : {});
+    // FormData는 select/input 값만 가져오므로 현재 URL params도 병합
+    const current = new URLSearchParams(window.location.search);
+    current.forEach((v, k) => { if (!params.has(k)) params.set(k, v); });
+    window.location.href = baseUrl + '?' + params.toString();
+}
+</script>
+<style>
+.col-cust-item { padding: 3px 6px; border-radius: 4px; transition: background 0.1s; cursor: default; }
+.col-cust-item.drag-over { background: #dbeafe; }
+.col-drag-handle { cursor: grab; font-size: 1.1em; user-select: none; color: #94a3b8; }
+.col-drag-handle:active { cursor: grabbing; }
+</style>
+<script>
+/* ── Column Customizer ─────────────────────────────── */
+(function(){
+    var CC = window.ColCust = {
+        init: function(tableSelector, pageKey, userId) {
+            var table = document.querySelector(tableSelector);
+            if (!table) return;
+            CC._table = table; CC._pageKey = pageKey; CC._userId = userId;
+            var order = CC._loadOrder(userId, pageKey);
+            if (order) CC._applyOrder(table, order);
+            var hidden = CC._load(userId, pageKey);
+            hidden.forEach(function(k){ CC._setVisible(table, k, false); });
+            CC._buildUI(table, pageKey, userId, hidden);
+        },
+        _setVisible: function(table, colKey, visible) {
+            var ths = Array.from(table.querySelectorAll('thead th'));
+            var idx = ths.findIndex(function(th){ return th.dataset.col === colKey; });
+            if (idx < 0) return;
+            var d = visible ? '' : 'none';
+            ths[idx].style.display = d;
+            table.querySelectorAll('tbody tr').forEach(function(tr){
+                if (tr.children[idx]) tr.children[idx].style.display = d;
+            });
+        },
+        _load: function(userId, pageKey) {
+            try { return JSON.parse(localStorage.getItem('col_prefs_' + userId + '_' + pageKey) || '[]'); }
+            catch(e) { return []; }
+        },
+        _save: function(userId, pageKey, hidden) {
+            localStorage.setItem('col_prefs_' + userId + '_' + pageKey, JSON.stringify(hidden));
+        },
+        _loadOrder: function(userId, pageKey) {
+            try { return JSON.parse(localStorage.getItem('col_order_' + userId + '_' + pageKey) || 'null'); }
+            catch(e) { return null; }
+        },
+        _saveOrder: function(userId, pageKey, order) {
+            localStorage.setItem('col_order_' + userId + '_' + pageKey, JSON.stringify(order));
+        },
+        _applyOrder: function(table, order) {
+            if (!order || !order.length) return;
+            var headRow = table.querySelector('thead tr');
+            var ths = Array.from(headRow.children);
+            var keyToIdx = {};
+            ths.forEach(function(th, i){ if (th.dataset.col) keyToIdx[th.dataset.col] = i; });
+            var colPositions = ths.map(function(th, i){ return th.dataset.col ? i : null; }).filter(function(x){ return x !== null; });
+            var allColKeys = colPositions.map(function(i){ return ths[i].dataset.col; });
+            var orderedKeys = order.filter(function(k){ return allColKeys.includes(k); });
+            allColKeys.forEach(function(k){ if (!orderedKeys.includes(k)) orderedKeys.push(k); });
+            var desiredIndices = orderedKeys.map(function(k){ return keyToIdx[k]; });
+            var allRows = [headRow].concat(Array.from(table.querySelectorAll('tbody tr')));
+            allRows.forEach(function(row){
+                var cells = Array.from(row.children);
+                var newOrder = cells.slice();
+                colPositions.forEach(function(pos, i){ newOrder[pos] = cells[desiredIndices[i]]; });
+                newOrder.forEach(function(cell){ row.appendChild(cell); });
+            });
+        },
+        _buildUI: function(table, pageKey, userId, currentHidden) {
+            var box = document.getElementById('col-cust-checkboxes');
+            if (!box) return;
+            box.innerHTML = '';
+            box.className = 'd-flex flex-wrap gap-1';
+            var dragSrc = null;
+            table.querySelectorAll('thead th[data-col]').forEach(function(th){
+                var key = th.dataset.col;
+                var label = th.dataset.colLabel;
+                var locked = th.dataset.colLocked === 'true';
+                var checked = !currentHidden.includes(key);
+                var div = document.createElement('div');
+                div.className = 'col-cust-item d-flex align-items-center gap-1';
+                div.setAttribute('draggable', 'true');
+                div.dataset.colKey = key;
+                div.innerHTML =
+                    '<span class="col-drag-handle">⠿</span>' +
+                    '<input class="form-check-input mt-0" type="checkbox" id="cc-' + key + '" data-col-key="' + key + '"' +
+                    (checked ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
+                    '<label class="form-check-label small mb-0" for="cc-' + key + '">' + label + '</label>';
+                div.querySelector('input').addEventListener('change', function(){
+                    CC._setVisible(table, key, this.checked);
+                });
+                div.addEventListener('dragstart', function(e){
+                    dragSrc = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(function(){ dragSrc.style.opacity = '0.4'; }, 0);
+                });
+                div.addEventListener('dragend', function(){
+                    this.style.opacity = '';
+                    box.querySelectorAll('.col-cust-item').forEach(function(el){ el.classList.remove('drag-over'); });
+                });
+                div.addEventListener('dragover', function(e){
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (this !== dragSrc) {
+                        box.querySelectorAll('.col-cust-item').forEach(function(el){ el.classList.remove('drag-over'); });
+                        this.classList.add('drag-over');
+                    }
+                });
+                div.addEventListener('drop', function(e){
+                    e.preventDefault();
+                    if (dragSrc && dragSrc !== this) {
+                        box.insertBefore(dragSrc, this);
+                        var newOrder = Array.from(box.querySelectorAll('.col-cust-item')).map(function(el){ return el.dataset.colKey; });
+                        CC._applyOrder(table, newOrder);
+                    }
+                });
+                box.appendChild(div);
+            });
+            var saveBtn = document.getElementById('col-cust-save');
+            if (saveBtn) {
+                saveBtn.onclick = function(){
+                    var hidden = [], order = [];
+                    box.querySelectorAll('.col-cust-item').forEach(function(item){
+                        var key = item.dataset.colKey;
+                        var cb = item.querySelector('input[data-col-key]');
+                        if (cb && !cb.disabled && !cb.checked) hidden.push(key);
+                        order.push(key);
+                    });
+                    CC._save(userId, pageKey, hidden);
+                    CC._saveOrder(userId, pageKey, order);
+                    document.getElementById('col-cust-panel').classList.add('d-none');
+                };
+            }
+        }
+    };
+    window.colCustToggle = function(){
+        var p = document.getElementById('col-cust-panel');
+        if (p) p.classList.toggle('d-none');
+    };
+})();
+/* ── End Column Customizer ─────────────────────────── */
+</script>
+</body>
+</html>

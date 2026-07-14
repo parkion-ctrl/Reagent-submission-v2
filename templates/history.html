@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="page-section-title">입출고 이력 조회</div>
+    <p class="page-section-desc mb-3">입고와 출고 기록을 조건별로 조회합니다.</p>
+
+    <form method="get" action="/history" class="filter-bar" style="flex-wrap: wrap; overflow-x: visible;">
+        <div class="filter-item" style="max-width: 180px; min-width: 180px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item" style="min-width: 220px; max-width: 280px;">
+            <label class="form-label custom-label">품목 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드 / 품목명 / Lot No">
+        </div>
+
+        <div class="filter-item" style="min-width: 190px; max-width: 260px;">
+            <label class="form-label custom-label">조회 기간</label>
+            <div class="d-flex gap-2 align-items-center history-period-group flex-wrap">
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="1d" {% if period == "1d" %}checked{% endif %}>
+                    <span>최근 1일</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="7d" {% if period == "7d" %}checked{% endif %}>
+                    <span>최근 7일</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="1m" {% if period == "1m" %}checked{% endif %}>
+                    <span>최근 1개월</span>
+                </label>
+                <label class="form-check d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input history-period-checkbox" type="checkbox" name="period" value="6m" {% if period == "6m" %}checked{% endif %}>
+                    <span>최근 6개월</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item" style="max-width: 160px; min-width: 160px;">
+            <label class="form-label custom-label">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control custom-input">
+        </div>
+
+        <div class="filter-item short">
+            <button type="submit" class="btn btn-primary custom-btn w-100">조회</button>
+        </div>
+
+        <div class="filter-item short">
+            <a href="/history?part=&tx_type=" class="btn btn-outline-secondary custom-btn w-100">초기화</a>
+        </div>
+
+        <div class="filter-item short">
+            <button type="button" class="btn btn-success custom-btn w-100" onclick="exportExcel('/history/export')">엑셀</button>
+        </div>
+    </form>
+</div>
+
+<div class="section-card">
+    <div class="d-flex gap-2 mb-3">
+        <button type="button" class="btn btn-sm" id="btnFreeIn" onclick="markBilling('FREE_IN')" style="background-color:#0d9488; color:#fff; border-color:#0d9488;">무상입고 처리</button>
+        <button type="button" class="btn btn-warning btn-sm" id="btnProvOut" onclick="markBilling('PROV_OUT')">가출고 처리</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markBilling(null)">일반으로 되돌리기</button>
+        <span class="text-muted small align-self-center ms-2" id="selectedCount">선택된 항목: 0개</span>
+    </div>
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width:40px;">
+                        <input type="checkbox" id="checkAll" class="form-check-input">
+                    </th>
+                    <th>거래일</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if tx_type %}filter-active-text{% endif %}">구분</span>
+                            <button type="button" class="filter-toggle" onclick="toggleFilterMenu(event, 'filter-tx-type')">▽</button>
+                        </div>
+                        <div id="filter-tx-type" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+
+                                <input type="hidden" name="date_from" value="{{ date_from }}">
+                                <input type="hidden" name="date_to" value="{{ date_to }}">
+                                <input type="hidden" name="period" value="{{ period }}">
+                                <select name="tx_type" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    <option value="IN" {% if tx_type == "IN" %}selected{% endif %}>입고</option>
+                                    <option value="OUT" {% if tx_type == "OUT" %}selected{% endif %}>출고</option>
+                                    <option value="FREE_IN" {% if tx_type == "FREE_IN" %}selected{% endif %}>무상입고</option>
+                                    <option value="PROV_OUT" {% if tx_type == "PROV_OUT" %}selected{% endif %}>가출고</option>
+                                </select>
+                                <div class="d-flex gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?part={{ part }}&q={{ q }}&vendor={{ vendor }}&reagent_type={{ reagent_type }}&date_from={{ date_from }}&date_to={{ date_to }}&period={{ period }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th>파트</th>
+                    <th>New Lot</th>
+                    <th onclick="sortTable('item_code')" class="sortable">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>Lot No</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if vendor %}filter-active-text{% endif %}">업체</span>
+                            <button type="button" class="filter-toggle" onclick="toggleFilterMenu(event, 'filter-vendor')">▽</button>
+                        </div>
+                        <div id="filter-vendor" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="tx_type" value="{{ tx_type }}">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+
+                                <input type="hidden" name="date_from" value="{{ date_from }}">
+                                <input type="hidden" name="date_to" value="{{ date_to }}">
+                                <input type="hidden" name="period" value="{{ period }}">
+                                <select name="vendor" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for v in vendor_options %}
+                                    <option value="{{ v }}" {% if vendor == v %}selected{% endif %}>{{ v }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-flex gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?tx_type={{ tx_type }}&part={{ part }}&q={{ q }}&reagent_type={{ reagent_type }}&date_from={{ date_from }}&date_to={{ date_to }}&period={{ period }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if reagent_type %}filter-active-text{% endif %}">시약 구분</span>
+                            <button type="button" class="filter-toggle" onclick="toggleFilterMenu(event, 'filter-reagent-type-hist')">▽</button>
+                        </div>
+                        <div id="filter-reagent-type-hist" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="tx_type" value="{{ tx_type }}">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+
+                                <input type="hidden" name="date_from" value="{{ date_from }}">
+                                <input type="hidden" name="date_to" value="{{ date_to }}">
+                                <input type="hidden" name="period" value="{{ period }}">
+                                <select name="reagent_type" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for opt in reagent_type_options %}
+                                    <option value="{{ opt.value }}" {% if reagent_type == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-flex gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?tx_type={{ tx_type }}&part={{ part }}&q={{ q }}&vendor={{ vendor }}&date_from={{ date_from }}&date_to={{ date_to }}&period={{ period }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th>입고 수량</th>
+                    <th>출고 수량</th>
+                    <th>잔여 재고</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if disposed %}filter-active-text{% endif %}">폐기</span>
+                            <button type="button" class="filter-toggle" onclick="toggleFilterMenu(event, 'filter-disposed')">▽</button>
+                        </div>
+                        <div id="filter-disposed" class="filter-menu d-none" style="max-width: 200px;">
+                            <form method="get" class="filter-form">
+                                <input type="hidden" name="tx_type" value="{{ tx_type }}">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="vendor" value="{{ vendor }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <input type="hidden" name="date_from" value="{{ date_from }}">
+                                <input type="hidden" name="date_to" value="{{ date_to }}">
+                                <input type="hidden" name="period" value="{{ period }}">
+                                <select name="disposed" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    <option value="N" {% if disposed == "N" %}selected{% endif %}>N</option>
+                                    <option value="Y" {% if disposed == "Y" %}selected{% endif %}>Y</option>
+                                </select>
+                                <div class="d-flex gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="?tx_type={{ tx_type }}&part={{ part }}&q={{ q }}&vendor={{ vendor }}&reagent_type={{ reagent_type }}&date_from={{ date_from }}&date_to={{ date_to }}&period={{ period }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th>등록자</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><input type="checkbox" class="form-check-input row-check" value="{{ item.id }}" data-tx-type="{{ item.tx_type }}"></td>
+                    <td>{{ item.tx_date }}</td>
+                    <td>
+                        {% if item.billing_label %}
+                        <span class="badge rounded-pill {{ item.billing_badge }}">{{ item.billing_label }}</span>
+                        {% else %}
+                        <span class="badge rounded-pill {{ item.tx_badge_class }}">{{ item.tx_type_label }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="part-pill" {% if item.item_name.endswith(' (New)') %}style="background:#dcfce7 !important; color:#166534 !important; border-color:#86efac !important;"{% endif %}>{{ item.part_label }}</span>
+                    </td>
+                    <td>{{ item.is_new_lot }}</td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" onclick="this.classList.toggle('expanded')" {% if item.item_name.endswith(' (New)') %}style="color:#166534 !important; font-weight:600 !important;"{% endif %}>{{ item.item_name }}</td>
+                    <td>{{ item.lot_no }}</td>
+                    <td>{{ item.vendor }}</td>
+                    <td>{{ item.reagent_type_label }}</td>
+                    <td class="fw-bold" style="color:#0d9488; background:#f0fdfa;">{% if item.inbound_qty %}+{{ item.inbound_qty }}{% endif %}</td>
+                    <td class="fw-bold" style="color:#9333ea; background:#faf5ff;">{% if item.outbound_qty %}-{{ item.outbound_qty }}{% endif %}</td>
+                    <td class="fw-bold" style="color:#b45309; background:#fefce8;">{{ item.remaining_stock }}</td>
+                    <td>{% if item.is_disposed == 'Y' %}<span class="badge text-bg-danger">Y</span>{% else %}{% endif %}</td>
+                    <td>{{ item.created_by }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="15" class="py-4 text-center text-muted">등록된 이력이 없습니다.</td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.badge-teal {
+    background-color: #0d9488;
+    color: #fff;
+}
+</style>
+
+<script>
+function toggleFilterMenu(event, id) {
+    event.stopPropagation();
+    const target = document.getElementById(id);
+    const button = event.currentTarget;
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (menu !== target) menu.classList.add('d-none');
+    });
+    if (!target.dataset.moved) {
+        document.body.appendChild(target);
+        target.dataset.moved = "1";
+    }
+    if (target.classList.contains('d-none')) {
+        target.classList.remove('d-none');
+        const rect = button.getBoundingClientRect();
+        const menuRect = target.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        let top = rect.bottom + 6;
+        if (spaceBelow < menuRect.height + 12 && rect.top > menuRect.height + 12) {
+            top = rect.top - menuRect.height - 6;
+        }
+        target.style.position = 'fixed';
+        target.style.top = `${top}px`;
+        target.style.left = `${rect.left}px`;
+        target.style.zIndex = '99999';
+    } else {
+        target.classList.add('d-none');
+    }
+}
+document.addEventListener('click', function (e) {
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (!menu.contains(e.target)) menu.classList.add('d-none');
+    });
+});
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('.filter-menu').forEach(m => m.classList.add('d-none'));
+}, true);
+window.addEventListener('resize', function () {
+    document.querySelectorAll('.filter-menu').forEach(m => m.classList.add('d-none'));
+});
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const historyForm = document.querySelector('form[action="/history"]');
+
+    document.querySelectorAll('.item-name-cell.expandable').forEach(cell => {
+        cell.addEventListener('click', function () {
+            this.classList.toggle('expanded');
+        });
+    });
+
+    document.querySelectorAll('.history-period-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function () {
+            if (this.checked) {
+                document.querySelectorAll('.history-period-checkbox').forEach(other => {
+                    if (other !== this) other.checked = false;
+                });
+                const dateFromInput = historyForm.querySelector('input[name="date_from"]');
+                const dateToInput = historyForm.querySelector('input[name="date_to"]');
+                if (dateFromInput) dateFromInput.value = '';
+                if (dateToInput) dateToInput.value = '';
+                historyForm.submit();
+            } else {
+                this.checked = true;
+            }
+        });
+    });
+
+    // 전체 체크박스
+    document.getElementById('checkAll').addEventListener('change', function () {
+        document.querySelectorAll('.row-check').forEach(cb => cb.checked = this.checked);
+        updateCount();
+    });
+
+    document.querySelectorAll('.row-check').forEach(cb => {
+        cb.addEventListener('change', updateCount);
+    });
+
+    function updateCount() {
+        const count = document.querySelectorAll('.row-check:checked').length;
+        document.getElementById('selectedCount').textContent = `선택된 항목: ${count}개`;
+    }
+});
+
+function markBilling(billingType) {
+    const checkedBoxes = [...document.querySelectorAll('.row-check:checked')];
+    if (checkedBoxes.length === 0) {
+        alert('항목을 먼저 선택해주세요.');
+        return;
+    }
+
+    if (billingType === 'FREE_IN') {
+        const invalid = checkedBoxes.filter(cb => cb.dataset.txType !== 'IN');
+        if (invalid.length > 0) {
+            alert('무상입고 처리는 입고 항목만 가능합니다.');
+            return;
+        }
+    } else if (billingType === 'PROV_OUT') {
+        const invalid = checkedBoxes.filter(cb => cb.dataset.txType !== 'OUT');
+        if (invalid.length > 0) {
+            alert('가출고 처리는 출고 항목만 가능합니다.');
+            return;
+        }
+    }
+
+    const ids = checkedBoxes.map(cb => cb.value);
+    const label = billingType === 'FREE_IN' ? '무상입고' : billingType === 'PROV_OUT' ? '가출고' : '일반';
+    if (!confirm(`선택한 ${ids.length}건을 [${label}]으로 처리하시겠습니까?`)) return;
+
+    fetch('/history/billing-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ ids: ids, billing_type: billingType })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) location.reload();
+        else alert('처리 중 오류가 발생했습니다: ' + (data.error || ''));
+    });
+}
+
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : '';
+}
+</script>
+{% endblock %}

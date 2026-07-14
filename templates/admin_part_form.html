@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card" style="max-width: 480px;">
+    <h2 class="page-title mb-4">{% if part_obj %}파트 수정{% else %}새 파트 추가{% endif %}</h2>
+
+    {% if errors %}
+    <div class="alert alert-danger py-2">
+        {% for e in errors %}<div>{{ e }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {{ csrf_input }}
+        <div class="mb-3">
+            <label class="form-label custom-label">파트 코드 <span class="text-danger">*</span></label>
+            <input type="text" name="code" class="form-control custom-input"
+                   value="{{ part_obj.code if part_obj else '' }}"
+                   placeholder="예: HE, TA, ZZ" maxlength="10"
+                   style="text-transform: uppercase;">
+            <div class="form-text">영문 대문자 최대 10자</div>
+        </div>
+        <div class="mb-4">
+            <label class="form-label custom-label">파트명 <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control custom-input"
+                   value="{{ part_obj.name if part_obj else '' }}"
+                   placeholder="예: 진단혈액, 자동화학">
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">저장</button>
+            <a href="/admin-parts/" class="btn btn-outline-secondary">취소</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.querySelector('input[name="code"]').addEventListener('input', function () {
+    this.value = this.value.toUpperCase();
+});
+</script>
+{% endblock %}

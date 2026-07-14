@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1">{% if group_obj %}그룹 수정{% else %}새 그룹 등록{% endif %}</h2>
+            <div class="text-secondary">권한을 묶어서 사용자에게 부여합니다.</div>
+        </div>
+        <a href="/admin-groups/" class="btn btn-outline-secondary">목록</a>
+    </div>
+
+    {% if errors %}
+    <div class="alert alert-danger">
+        {% for error in errors %}
+            <div>{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {{ csrf_input }}
+        <div class="mb-3">
+            <label class="form-label">그룹명</label>
+            <input type="text" name="name" class="form-control" value="{{ group_obj.name if group_obj else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">권한 선택</label>
+            <div class="row g-2">
+                {% for permission in permissions %}
+                <div class="col-md-6 col-lg-4">
+                    <label class="border rounded-3 p-2 w-100 small">
+                        <input type="checkbox" name="permissions" value="{{ permission.id }}" class="form-check-input me-2" {% if permission.id in selected_permission_ids %}checked{% endif %}>
+                        {{ permission.content_type.app_label }}.{{ permission.codename }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{% if group_obj %}저장{% else %}등록{% endif %}</button>
+            <a href="/admin-groups/" class="btn btn-outline-secondary">취소</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

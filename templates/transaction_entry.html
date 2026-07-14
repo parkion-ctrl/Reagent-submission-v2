@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">엑셀 일괄 업로드</h5>
+        <a href="/{{ tx_mode }}/upload-template" class="btn btn-sm btn-outline-secondary">예시 파일 다운로드</a>
+    </div>
+
+    <form action="/{{ tx_mode }}/upload-preview" method="post" enctype="multipart/form-data" class="master-upload-form">
+        <input type="hidden" name="q" value="{{ q }}">
+        <input type="hidden" name="part" value="{{ part }}">
+        <div>
+            <label for="{{ tx_mode }}_excel_file" class="form-label">업로드 파일</label>
+        </div>
+        <div class="input-group master-upload-group">
+            <input type="file" class="form-control" id="{{ tx_mode }}_excel_file" name="file" accept=".xlsx,.csv" required>
+            <button type="submit" class="btn btn-primary">미리보기</button>
+        </div>
+        <div class="form-text">
+            <div>1) 예시 파일을 다운로드 한 후, 헤더는 변경하지 말아주세요.</div>
+            <div>2) item_code에는 물품코드를, lot_no에는 Lot No를 입력해주세요. Lot No가 없는 경우 공란으로 두시면 됩니다. 단, 기존 마스터에 등록된 Lot No와 반드시 일치해야 합니다.</div>
+            <div>3) qty에는 {{ tx_qty_label }}을, tx_date에는 {{ tx_date_label }}을, expiry_date에는 유효기간을 입력해주세요. 유효기간이 없는 경우 비워두셔도 됩니다.</div>
+            <div>4) 날짜는 YYYYMMDD 형식의 8자리 숫자로 입력해주세요. (예: 20271231)</div>
+            <div>5) 미리보기 후 이상이 없으면 최종 업로드를 진행해주세요.</div>
+        </div>
+    </form>
+</div>
+
+{% if upload_error %}
+<div class="alert alert-danger">{{ upload_error }}</div>
+{% endif %}
+
+{% if preview_mode %}
+<div class="section-card mb-4">
+    <h5 class="mb-3">업로드 미리보기</h5>
+    <div class="mb-2">총 업로드 대상: <strong>{{ total_count }}</strong>건</div>
+    <div class="mb-2">실제 업로드 예정: <strong>{{ valid_count }}</strong>건</div>
+
+    {% if new_lot_messages %}
+    <div class="alert" style="background:#ccfbf1; border:1px solid #5eead4; color:#0f766e;">
+        {% for msg in new_lot_messages %}
+        <div>{{ msg }}, 등록하시겠습니까?</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if invalid_count > 0 %}
+    <div class="alert alert-danger">
+        {% for msg in invalid_messages %}
+        <div>{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>파트</th>
+                    <th class="sortable" onclick="sortTransactionTable('item_code')">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th class="sortable" onclick="sortTransactionTableByItemName(this)">품목명 <span class="sort-icon">↕</span></th>
+                    <th>Lot No</th>
+                    <th>{{ tx_qty_label }}</th>
+                    <th>{{ tx_date_label }}</th>
+                    <th>유효기간</th>
+                    <th>현재고</th>
+                    <th>반영 후 재고</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr {% if row.status == "New Lot 예정" %}style="background:#ccfbf1 !important;"{% endif %}>
+                    <td>
+                        <span
+                            class="part-pill"
+                            {% if row.status == "오류" %}style="background:#e5e7eb !important; color:#111827 !important; border-color:#9ca3af !important;"{% elif row.item_name.endswith(' (New)') %}style="background:#dcfce7 !important; color:#166534 !important; border-color:#86efac !important;"{% endif %}
+                        >{{ row.part_label }}</span>
+                    </td>
+                    <td>{{ row.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ row.item_name }}" onclick="this.classList.toggle('expanded')" {% if row.item_name.endswith(' (New)') and row.status != "오류" %}style="color:#0f766e !important; font-weight:600 !important;"{% endif %}>{{ row.item_name }}</td>
+                    <td>{{ row.lot_no }}</td>
+                    <td>{{ row.qty }}</td>
+                    <td>{{ row.tx_date }}</td>
+                    <td>{{ row.expiry_date }}</td>
+                    <td>{{ row.current_stock }}</td>
+                    <td>{{ row.remaining_stock }}</td>
+                    <td>{% if row.status == "오류" %}<span class="text-danger fw-semibold">{{ row.status }}</span>{% elif row.status == "New Lot 예정" %}<span style="color:#0f766e; font-weight:600;">{{ row.status }}</span>{% else %}{{ row.status }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form action="/{{ tx_mode }}/upload-confirm" method="post" class="mt-3">
+        <input type="hidden" name="upload_data" value='{{ preview_json|safe }}'>
+        <input type="hidden" name="q" value="{{ q }}">
+        <input type="hidden" name="part" value="{{ part }}">
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success" onclick="if(!confirm('이 내용으로 반영하시겠습니까?')) return false; sessionStorage.removeItem('{{ tx_mode }}_from_preview'); sessionStorage.removeItem('{{ tx_mode }}_preview_date'); sessionStorage.removeItem('{{ tx_mode }}_cart');">확정</button>
+            <a href="/{{ tx_mode }}?q={{ q }}&part={{ part }}&sort={{ sort }}&order={{ order }}" class="btn btn-secondary" onclick="sessionStorage.setItem('{{ tx_mode }}_from_preview','1')">← 뒤로 가기</a>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <div class="page-section-title">{{ tx_title }}</div>
+            <p class="page-section-desc">검색 후 목록에서 선택하고 {{ tx_qty_label }}을 입력해 일괄 반영합니다.</p>
+        </div>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="get" action="/{{ tx_mode }}" class="filter-bar">
+        <div class="col-lg-2">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-lg-2">
+            <label class="form-label custom-label">장비</label>
+            <select name="equipment" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for eq in equipment_options %}
+                <option value="{{ eq }}" {% if equipment == eq %}selected{% endif %}>{{ eq }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-lg-2">
+            <label class="form-label custom-label">시약구분</label>
+            <select name="reagent_type" class="form-select custom-input">
+                <option value="">전체</option>
+                {% for rt in reagent_type_options %}
+                <option value="{{ rt.value }}" {% if reagent_type == rt.value %}selected{% endif %}>{{ rt.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-lg-3">
+            <label class="form-label custom-label">품목코드 / 품목명 검색</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control custom-input" placeholder="품목코드, 품목명 또는 Lot No를 입력하세요">
+        </div>
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary custom-btn px-3">조회</button>
+        </div>
+
+        <div class="col-auto">
+            <a href="/{{ tx_mode }}" class="btn btn-outline-secondary custom-btn px-3" onclick="sessionStorage.removeItem('{{ tx_mode }}_cart')">초기화</a>
+        </div>
+        {% if tx_mode == 'inbound' %}
+        <div class="col-auto">
+            <button type="button" class="btn btn-outline-success custom-btn px-3" onclick="openPresetModal()">약속</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+{% if tx_mode == 'inbound' %}
+<!-- 약속 모달 -->
+<div class="modal fade" id="presetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">약속 선택</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if presets %}
+                <div class="list-group">
+                    {% for p in presets %}
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                            onclick="applyPreset({{ p.id }}, '{{ p.name }}')">
+                        <span><strong>{{ p.name }}</strong></span>
+                        <span class="badge bg-secondary">{{ p.item_count }}개</span>
+                    </button>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">등록된 약속이 없습니다.<br>관리자 페이지 → 약속 관리에서 추가하세요.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openPresetModal() {
+    new bootstrap.Modal(document.getElementById('presetModal')).show();
+}
+
+async function applyPreset(presetId, presetName) {
+    bootstrap.Modal.getInstance(document.getElementById('presetModal')).hide();
+    try {
+        const res = await fetch('/preset/' + presetId + '/items/');
+        const data = await res.json();
+        if (!data.items || data.items.length === 0) {
+            alert('약속에 포함된 활성 품목이 없습니다.');
+            return;
+        }
+        const cart = _getCart('inbound');
+        data.items.forEach(function(item) {
+            const id = String(item.id);
+            if (!cart[id]) {
+                cart[id] = {
+                    qty: '',
+                    name: item.item_name || '',
+                    item_code: item.item_code || '',
+                    lot_no: item.lot_no || '',
+                    expiry_date: item.expiry_date || '',
+                    equipment: '',
+                    part_label: item.part || '',
+                    current_stock: '',
+                };
+            }
+        });
+        _saveCart('inbound', cart);
+        _renderCart('inbound');
+    } catch(e) {
+        alert('약속 불러오기 실패: ' + e);
+    }
+}
+</script>
+{% endif %}
+
+<!-- 선택 카트 패널 -->
+<div id="{{ tx_mode }}-cart-panel" class="section-card mb-3" style="display:none;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <div class="page-section-title">선택된 항목 <span id="{{ tx_mode }}-cart-count" class="badge bg-primary ms-2">0</span></div>
+            <p class="page-section-desc mb-0">수량 입력 후 미리보기를 클릭하세요.</p>
+        </div>
+        <div class="d-flex align-items-end gap-2 flex-wrap">
+            {% if tx_mode == 'inbound' %}
+            <button type="button" class="btn custom-btn" style="background:#ccfbf1; border:1px solid #5eead4; color:#0f766e; font-weight:600;" onclick="registerNewLotInCart('{{ tx_mode }}')">New Lot 등록</button>
+            {% endif %}
+            <div>
+                <label class="form-label mb-1">{{ tx_date_label }}</label>
+                <input type="date" id="{{ tx_mode }}-bulk-date" class="form-control" value="{{ today }}">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="submitBulkTransaction('{{ tx_mode }}')">미리보기</button>
+        </div>
+    </div>
+    <div class="table-scroll">
+        <table class="table table-sm inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>파트</th>
+                    <th class="sortable" onclick="sortCart('{{ tx_mode }}', 'item_code')" style="cursor:pointer;">품목코드 <span id="{{ tx_mode }}-cart-sort-icon-item_code" class="sort-icon">↕</span></th>
+                    <th class="text-start">품목명</th>
+                    <th>Lot No</th>
+                    <th>유효기간</th>
+                    <th>현재고</th>
+                    <th style="width:90px;">{{ tx_qty_label }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="{{ tx_mode }}-cart-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 재고 목록 -->
+<div class="section-card">
+    <div class="mb-3">
+        <div class="page-section-title">현재 재고 목록</div>
+        <p class="page-section-desc mb-0">항목을 체크하면 위 선택 목록에 추가됩니다.</p>
+    </div>
+
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="{{ tx_mode }}-select-all" aria-label="전체 선택"></th>
+                    <th>파트</th>
+                    <th onclick="sortTransactionTable('item_code')" class="sortable">품목코드 <span class="sort-icon {% if sort == 'item_code' %}active{% endif %}">{% if sort == "item_code" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th onclick="sortTransactionTable('item_name')" class="sortable">품목명 <span class="sort-icon {% if sort == 'item_name' %}active{% endif %}">{% if sort == "item_name" %}{% if order == "asc" %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></th>
+                    <th>Lot No</th>
+                    <th>유효기간</th>
+                    <th>단위</th>
+                    <th>현재고</th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if equipment %}filter-active-text{% endif %}">장비</span>
+                            <button type="button" class="filter-toggle {% if equipment %}active{% endif %}" onclick="toggleTxFilterMenu(event, 'filter-tx-equipment')">▽</button>
+                        </div>
+                        <div id="filter-tx-equipment" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" action="/{{ tx_mode }}" class="filter-form">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="reagent_type" value="{{ reagent_type }}">
+                                <select name="equipment" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for eq in equipment_options %}
+                                    <option value="{{ eq }}" {% if equipment == eq %}selected{% endif %}>{{ eq }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="/{{ tx_mode }}?q={{ q }}&part={{ part }}&sort={{ sort }}&order={{ order }}&reagent_type={{ reagent_type }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="filterable-th">
+                        <div class="th-inner">
+                            <span class="{% if reagent_type %}filter-active-text{% endif %}">시약구분</span>
+                            <button type="button" class="filter-toggle {% if reagent_type %}active{% endif %}" onclick="toggleTxFilterMenu(event, 'filter-tx-reagent-type')">▽</button>
+                        </div>
+                        <div id="filter-tx-reagent-type" class="filter-menu d-none" style="max-width: 220px;">
+                            <form method="get" action="/{{ tx_mode }}" class="filter-form">
+                                <input type="hidden" name="q" value="{{ q }}">
+                                <input type="hidden" name="part" value="{{ part }}">
+                                <input type="hidden" name="sort" value="{{ sort }}">
+                                <input type="hidden" name="order" value="{{ order }}">
+                                <input type="hidden" name="equipment" value="{{ equipment }}">
+                                <select name="reagent_type" class="form-select form-select-sm mb-2">
+                                    <option value="">전체</option>
+                                    {% for rt in reagent_type_options %}
+                                    <option value="{{ rt.value }}" {% if reagent_type == rt.value %}selected{% endif %}>{{ rt.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary">적용</button>
+                                    <a href="/{{ tx_mode }}?q={{ q }}&part={{ part }}&sort={{ sort }}&order={{ order }}&equipment={{ equipment }}" class="btn btn-sm btn-outline-secondary">초기화</a>
+                                </div>
+                            </form>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="selectable-row" data-item-id="{{ item.id }}" data-is-new-lot="{{ item.is_new_lot }}"
+                    data-name="{{ item.item_name }}" data-lot="{{ item.lot_no }}"
+                    data-equipment="{{ item.equipment }}" data-part-label="{{ item.part_label }}"
+                    data-stock="{{ item.current_stock }}" data-expiry="{{ item.expiry_date }}"
+                    data-item-code="{{ item.item_code }}">
+                    <td><input type="checkbox" class="{{ tx_mode }}-row-checkbox" value="{{ item.id }}" aria-label="항목 선택"></td>
+                    <td><span class="part-pill" {% if item.item_name.endswith(' (New)') %}style="background:#dcfce7 !important; color:#166534 !important; border-color:#86efac !important;"{% endif %}>{{ item.part_label }}</span></td>
+                    <td>{{ item.item_code }}</td>
+                    <td class="text-start item-name-cell expandable" title="{{ item.item_name }}" {% if item.item_name.endswith(' (New)') %}style="color:#166534 !important; font-weight:600 !important;"{% endif %}>{{ item.item_name }}</td>
+                    <td>{{ item.lot_no }}</td>
+                    <td>{{ item.expiry_date }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.current_stock }}</td>
+                    <td>{{ item.equipment }}</td>
+                    <td>{{ item.reagent_type_label }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="py-4 text-center text-muted">조회된 시약이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form id="{{ tx_mode }}-bulk-form" method="post" action="/{{ tx_mode }}/bulk-preview" style="display:none;">
+    <input type="hidden" name="rows_json" id="{{ tx_mode }}-rows-json">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="part" value="{{ part }}">
+</form>
+
+<script>
+// ── 카트(선택 목록) 관련 유틸 ──────────────────────────────────
+function _selectionKey(mode) { return `${mode}_cart`; }
+function _getCart(mode) {
+    try { return JSON.parse(sessionStorage.getItem(_selectionKey(mode)) || '{}'); } catch(e) { return {}; }
+}
+function _saveCart(mode, cart) {
+    sessionStorage.setItem(_selectionKey(mode), JSON.stringify(cart));
+}
+function _escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 카트 렌더링 ───────────────────────────────────────────────
+function _renderCart(mode) {
+    const cart = _getCart(mode);
+    const tbody = document.getElementById(`${mode}-cart-tbody`);
+    const panel = document.getElementById(`${mode}-cart-panel`);
+    const countBadge = document.getElementById(`${mode}-cart-count`);
+    if (!tbody || !panel) return;
+
+    const count = Object.keys(cart).filter(k => !k.startsWith('NL_')).length;
+    if (countBadge) countBadge.textContent = count;
+    panel.style.display = Object.keys(cart).length > 0 ? '' : 'none';
+
+    tbody.innerHTML = '';
+    let entries = Object.entries(cart);
+    const sortState = _cartSortState[mode];
+    if (sortState && sortState.col) {
+        const col = sortState.col, asc = sortState.order === 'asc';
+        entries.sort(([, a], [, b]) => {
+            const av = (a[col] || '').toLowerCase();
+            const bv = (b[col] || '').toLowerCase();
+            return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+    }
+    for (const [id, entry] of entries) {
+        const tr = document.createElement('tr');
+        if (entry.is_new_lot_row) {
+            tr.className = 'cart-new-lot-row';
+            tr.dataset.sourceId = entry.source_id;
+            tr.style.cssText = 'background:#ccfbf1 !important;';
+            tr.innerHTML = `
+                <td><input type="checkbox" class="${mode}-cart-cb" value="${_escHtml(id)}"></td>
+                <td><span class="part-pill" style="font-size:0.8em;background:#dcfce7 !important;color:#166534 !important;border-color:#86efac !important;">${_escHtml(entry.part_label)}</span></td>
+                <td>${_escHtml(entry.item_code || '')}</td>
+                <td class="text-start" style="color:#0f766e;font-weight:600;">${_escHtml(entry.name)} <span style="font-size:0.75em;background:#5eead4;color:#134e4a;border-radius:4px;padding:1px 5px;">New</span></td>
+                <td><input type="text" class="form-control form-control-sm" placeholder="New Lot No 입력" style="min-width:100px;"
+                    value="${_escHtml(entry.lot_no)}"
+                    oninput="onCartFieldInput('${mode}','${id}','lot_no',this.value)"></td>
+                <td><input type="date" class="form-control form-control-sm"
+                    value="${_escHtml(entry.expiry_date)}"
+                    oninput="onCartFieldInput('${mode}','${id}','expiry_date',this.value)"></td>
+                <td>-</td>
+                <td><input type="number" class="form-control form-control-sm" min="1" value="${_escHtml(entry.qty)}"
+                    placeholder="수량" style="width:80px;"
+                    oninput="onCartQtyInput('${mode}','${id}',this.value)"></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger p-0"
+                    onclick="removeFromCart('${mode}','${id}')">✕</button></td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td><input type="checkbox" class="${mode}-cart-cb" value="${_escHtml(id)}"></td>
+                <td><span class="part-pill" style="font-size:0.8em;">${_escHtml(entry.part_label)}</span></td>
+                <td>${_escHtml(entry.item_code || '')}</td>
+                <td class="text-start">${_escHtml(entry.name)}</td>
+                <td>${_escHtml(entry.lot_no)}</td>
+                <td>${_escHtml(entry.expiry_date || '')}</td>
+                <td>${_escHtml(entry.current_stock)}</td>
+                <td><input type="number" class="form-control form-control-sm" min="1" value="${_escHtml(entry.qty)}"
+                    placeholder="수량" style="width:80px;"
+                    oninput="onCartQtyInput('${mode}','${id}',this.value)"></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger p-0"
+                    onclick="removeFromCart('${mode}','${id}')">✕</button></td>
+            `;
+        }
+        tbody.appendChild(tr);
+    }
+}
+
+const _cartSortState = {};
+function sortCart(mode, col) {
+    if (!_cartSortState[mode]) _cartSortState[mode] = { col: '', order: 'asc' };
+    const state = _cartSortState[mode];
+    state.order = (state.col === col && state.order === 'asc') ? 'desc' : 'asc';
+    state.col = col;
+    const icon = document.getElementById(`${mode}-cart-sort-icon-${col}`);
+    if (icon) icon.textContent = state.order === 'asc' ? '▲' : '▼';
+    _renderCart(mode);
+}
+
+function onCartQtyInput(mode, id, val) {
+    const cart = _getCart(mode);
+    if (cart[id]) { cart[id].qty = val; _saveCart(mode, cart); }
+}
+
+function onCartFieldInput(mode, id, field, val) {
+    const cart = _getCart(mode);
+    if (cart[id]) { cart[id][field] = val; _saveCart(mode, cart); }
+}
+
+// ── 카트 추가 / 제거 ──────────────────────────────────────────
+function addToCart(mode, checkbox) {
+    const row = checkbox.closest('.selectable-row');
+    const cart = _getCart(mode);
+    const id = checkbox.value;
+    if (!cart[id]) {
+        cart[id] = {
+            qty: '',
+            name: row.dataset.name || '',
+            item_code: row.dataset.itemCode || '',
+            lot_no: row.dataset.lot || '',
+            expiry_date: row.dataset.expiry || '',
+            equipment: row.dataset.equipment || '',
+            part_label: row.dataset.partLabel || '',
+            current_stock: row.dataset.stock || '',
+        };
+        _saveCart(mode, cart);
+    }
+    _highlightRow(row, true);
+    _renderCart(mode);
+}
+
+function removeFromCart(mode, id) {
+    const cart = _getCart(mode);
+    delete cart[id];
+    // New Lot 행이 있으면 같이 삭제
+    delete cart[`NL_${id}`];
+    _saveCart(mode, cart);
+    const cb = document.querySelector(`.${mode}-row-checkbox[value="${id}"]`);
+    if (cb) { cb.checked = false; _highlightRow(cb.closest('.selectable-row'), false); }
+    _renderCart(mode);
+}
+
+function _highlightRow(row, on) {
+    if (!row) return;
+    row.querySelectorAll('td').forEach(td => { td.style.backgroundColor = on ? '#e8f1ff' : ''; });
+}
+
+// ── 정렬 ────────────────────────────────────────────────────
+function sortTransactionTable(column) {
+    const url = new URL(window.location.href);
+    const cur = url.searchParams.get('sort');
+    const ord = url.searchParams.get('order') || 'asc';
+    url.searchParams.set('sort', column);
+    url.searchParams.set('order', cur === column && ord === 'asc' ? 'desc' : 'asc');
+    sessionStorage.setItem('{{ tx_mode }}_same_page', '1');
+    window.location.href = url.toString();
+}
+
+// ── New Lot 카트 행 추가 (inbound 전용) ───────────────────────
+function registerNewLotInCart(mode) {
+    if (mode !== 'inbound') return;
+    const checkedCbs = Array.from(document.querySelectorAll(`.${mode}-cart-cb:checked`));
+    if (checkedCbs.length !== 1) { alert('New Lot 등록은 항목을 정확히 1개만 선택해야 합니다.'); return; }
+    const cbVal = checkedCbs[0].value;
+    if (cbVal.startsWith('NL_')) { alert('New Lot 행에는 New Lot을 추가할 수 없습니다.'); return; }
+    const cart = _getCart(mode);
+    if (cart[cbVal]?.is_new_lot_row) { alert('이미 New Lot인 항목입니다.'); return; }
+    const nlKey = `NL_${cbVal}`;
+    if (cart[nlKey]) { alert('이미 해당 항목에 New Lot 행이 추가되어 있습니다.'); return; }
+    const sourceEntry = cart[cbVal];
+    if (!sourceEntry) return;
+    cart[nlKey] = {
+        qty: '',
+        name: sourceEntry.name,
+        item_code: sourceEntry.item_code || '',
+        lot_no: '',
+        expiry_date: '',
+        part_label: sourceEntry.part_label,
+        current_stock: '-',
+        is_new_lot_row: true,
+        source_id: cbVal,
+    };
+    _saveCart(mode, cart);
+    _renderCart(mode);
+}
+
+// ── 미리보기 제출 ─────────────────────────────────────────────
+function submitBulkTransaction(mode) {
+    const dateInput = document.getElementById(`${mode}-bulk-date`);
+    const txDate = dateInput ? dateInput.value : '';
+    if (!txDate) { alert('거래일을 입력해 주세요'); return; }
+
+    const rows = [];
+    const cart = _getCart(mode);
+
+    // 일반 항목 수량 누락 검사 (출고만 엄격 검사, 입고는 0이면 미리보기에서 스킵)
+    if (mode !== 'inbound') {
+        const missing = Object.entries(cart).filter(([, e]) => !e.is_new_lot_row && (!e.qty || Number(e.qty) < 1)).map(([, e]) => e.name);
+        if (missing.length > 0) {
+            alert(`수량을 1개 이상 입력해 주세요.\n수량 누락된 항목:\n${missing.map(n => `• ${n}`).join('\n')}`);
+            return;
+        }
+    }
+
+    for (const [id, entry] of Object.entries(cart)) {
+        if (entry.is_new_lot_row) {
+            if (!entry.lot_no) { alert('New Lot 행에 Lot No를 입력해 주세요.'); return; }
+            if (!entry.qty || Number(entry.qty) < 1) { alert('New Lot 행의 입고 수량을 1 이상으로 입력해 주세요.'); return; }
+            rows.push({ inventory_id: Number(entry.source_id), qty: Number(entry.qty), tx_date: txDate, is_new_lot_row: true, new_lot_no: entry.lot_no, new_expiry_date: entry.expiry_date });
+        } else {
+            if (mode === 'inbound' && (!entry.qty || Number(entry.qty) < 1)) continue;
+            rows.push({ inventory_id: Number(id), qty: Number(entry.qty), tx_date: txDate });
+        }
+    }
+
+    if (rows.length === 0) { alert(`${mode === 'inbound' ? '입고' : '출고'}할 항목을 선택해 주세요`); return; }
+
+    document.getElementById(`${mode}-rows-json`).value = JSON.stringify(rows);
+    sessionStorage.setItem(`${mode}_from_preview`, '1');
+    sessionStorage.setItem(`${mode}_preview_date`, txDate);
+    document.getElementById(`${mode}-bulk-form`).submit();
+}
+
+// ── DOMContentLoaded ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    const mode = '{{ tx_mode }}';
+
+    // 카트 초기화 조건 판단
+    if (sessionStorage.getItem(`${mode}_same_page`) === '1') {
+        // 필터/정렬 이동 → 카트 유지
+        sessionStorage.removeItem(`${mode}_same_page`);
+    } else if (sessionStorage.getItem(`${mode}_from_preview`) === '1') {
+        // 미리보기에서 취소로 돌아옴 → 카트 유지, 날짜 복원
+        sessionStorage.removeItem(`${mode}_from_preview`);
+        const savedDate = sessionStorage.getItem(`${mode}_preview_date`);
+        if (savedDate) {
+            const dateInput = document.getElementById(`${mode}-bulk-date`);
+            if (dateInput) dateInput.value = savedDate;
+            sessionStorage.removeItem(`${mode}_preview_date`);
+        }
+    } else {
+        sessionStorage.removeItem(_selectionKey(mode));
+    }
+
+    // 모든 필터 폼 submit 시 same_page 플래그 세우기
+    document.querySelectorAll('form[method="get"]').forEach(form => {
+        form.addEventListener('submit', function () {
+            sessionStorage.setItem(`${mode}_same_page`, '1');
+        });
+    });
+
+    // 다른 페이지 링크 클릭 시 카트에 항목이 있으면 confirm
+    const currentPath = window.location.pathname;
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
+        // 같은 페이지(필터/초기화 링크)는 무시
+        const destPath = new URL(href, window.location.origin).pathname;
+        if (destPath === currentPath) return;
+        // 카트에 항목 있을 때만 경고 (same_page·from_preview 이동은 제외)
+        if (Object.keys(_getCart(mode)).length === 0) return;
+        if (sessionStorage.getItem(`${mode}_same_page`) === '1') return;
+        if (sessionStorage.getItem(`${mode}_from_preview`) === '1') return;
+        e.preventDefault();
+        const leave = confirm('카트에 선택된 항목이 있습니다.\n이대로 페이지를 나가면 선택 내용은 저장되지 않습니다.\n\n계속하시겠습니까?');
+        if (leave) {
+            sessionStorage.removeItem(_selectionKey(mode));
+            window.location.href = href;
+        }
+    });
+
+    // 브라우저 뒤로가기 / 탭 닫기
+    window.addEventListener('beforeunload', function (e) {
+        if (sessionStorage.getItem(`${mode}_same_page`) === '1') return;
+        if (sessionStorage.getItem(`${mode}_from_preview`) === '1') return;
+        if (Object.keys(_getCart(mode)).length === 0) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
+    const cart = _getCart(mode);
+
+    // 페이지 로드 시 카트 복원
+    _renderCart(mode);
+
+    // 메인 테이블 체크박스 복원 + 하이라이트
+    document.querySelectorAll(`.${mode}-row-checkbox`).forEach(cb => {
+        if (cart[cb.value]) {
+            cb.checked = true;
+            _highlightRow(cb.closest('.selectable-row'), true);
+        }
+        cb.addEventListener('change', function () {
+            if (this.checked) addToCart(mode, this);
+            else removeFromCart(mode, this.value);
+        });
+    });
+
+    // 전체 선택
+    const selectAll = document.getElementById(`${mode}-select-all`);
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll(`.${mode}-row-checkbox`).forEach(cb => {
+                cb.checked = this.checked;
+                if (this.checked) addToCart(mode, cb);
+                else removeFromCart(mode, cb.value);
+            });
+        });
+    }
+
+    document.querySelectorAll('.item-name-cell.expandable').forEach(cell => {
+        cell.addEventListener('click', function () { this.classList.toggle('expanded'); });
+    });
+});
+
+function toggleTxFilterMenu(event, id) {
+    event.stopPropagation();
+    const target = document.getElementById(id);
+    const button = event.currentTarget;
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (menu !== target) menu.classList.add('d-none');
+    });
+    if (!target.dataset.moved) {
+        document.body.appendChild(target);
+        target.dataset.moved = "1";
+    }
+    if (target.classList.contains('d-none')) {
+        target.classList.remove('d-none');
+        const rect = button.getBoundingClientRect();
+        const menuRect = target.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        let top = rect.bottom + 6;
+        if (spaceBelow < menuRect.height + 12 && spaceAbove > menuRect.height + 12) {
+            top = rect.top - menuRect.height - 6;
+        }
+        target.style.position = 'fixed';
+        target.style.top = `${top}px`;
+        target.style.zIndex = '99999';
+        const viewportWidth = window.innerWidth;
+        const leftPos = rect.left + menuRect.width > viewportWidth - 8
+            ? Math.max(0, rect.right - menuRect.width)
+            : rect.left;
+        target.style.left = `${leftPos}px`;
+    } else {
+        target.classList.add('d-none');
+    }
+}
+
+document.addEventListener('click', function (e) {
+    document.querySelectorAll('.filter-menu').forEach(menu => {
+        if (!menu.contains(e.target)) menu.classList.add('d-none');
+    });
+});
+
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+}, true);
+
+window.addEventListener('resize', function () {
+    document.querySelectorAll('.filter-menu').forEach(menu => menu.classList.add('d-none'));
+});
+</script>
+{% endblock %}

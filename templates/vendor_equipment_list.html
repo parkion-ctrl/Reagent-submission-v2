@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0 fw-semibold">{{ title }}</h3>
+        <a href="{{ back_url }}" class="btn btn-outline-secondary">← Raw Database 관리로 돌아가기</a>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    {% if list_type == "equipment" %}
+    <form method="get" action="{{ list_url }}" class="filter-bar mb-3">
+        <div style="width:220px; flex-shrink:0;">
+            <label class="form-label custom-label">파트 조회</label>
+            <select name="filter_part" class="form-select custom-input" onchange="this.form.submit()">
+                <option value="">전체</option>
+                {% for code, pname in part_map.items() %}
+                <option value="{{ code }}" {% if filter_part == code %}selected{% endif %}>{{ code }} ({{ pname }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    {% endif %}
+
+    <form method="post" action="{{ create_url }}" class="d-flex gap-2 align-items-end mb-2">
+        {{ csrf_input }}
+        {% if list_type == "equipment" %}
+        <div style="width:220px; flex-shrink:0;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input">
+                <option value="">선택 안 함</option>
+                {% for code, pname in part_map.items() %}
+                <option value="{{ code }}" {% if filter_part == code %}selected{% endif %}>{{ code }} ({{ pname }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div style="width:360px; flex-shrink:0;">
+            <label class="form-label custom-label">{% if list_type == "equipment" %}장비명{% else %}업체명{% endif %}</label>
+            <input type="text" name="name" class="form-control custom-input" placeholder="이름을 입력하세요" required>
+        </div>
+        <button type="submit" class="btn btn-primary px-4" style="height:38px;">추가</button>
+    </form>
+</div>
+
+<div class="section-card table-card">
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width:60px;">#</th>
+                    {% if list_type == "equipment" %}<th style="width:180px;">파트</th>{% endif %}
+                    <th>이름</th>
+                    <th style="width:80px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="text-muted small">{{ item.id }}</td>
+                    {% if edit_id == item.id %}
+                    <td colspan="{% if list_type == 'equipment' %}3{% else %}2{% endif %}">
+                        <form method="post" action="{{ list_url }}{{ item.id }}/edit/" class="d-flex gap-2 align-items-center">
+                            {{ csrf_input }}
+                            {% if list_type == "equipment" %}
+                            <select name="part" class="form-select form-select-sm" style="width:200px; flex-shrink:0;">
+                                <option value="">선택 안 함</option>
+                                {% for code, pname in part_map.items() %}
+                                <option value="{{ code }}" {% if item.part == code %}selected{% endif %}>{{ code }} ({{ pname }})</option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                            <input type="text" name="name" value="{{ item.name }}" class="form-control form-control-sm" style="max-width:320px;" required autofocus>
+                            <button type="submit" class="btn btn-sm btn-primary">저장</button>
+                            <a href="{{ list_url }}{% if filter_part %}?filter_part={{ filter_part }}{% endif %}" class="btn btn-sm btn-outline-secondary">취소</a>
+                        </form>
+                    </td>
+                    {% else %}
+                    {% if list_type == "equipment" %}
+                    <td><span class="part-pill">{{ item.part_label }}</span></td>
+                    {% endif %}
+                    <td>{{ item.name }}</td>
+                    <td>
+                        <a href="{{ list_url }}?edit_id={{ item.id }}{% if filter_part %}&filter_part={{ filter_part }}{% endif %}" class="btn btn-sm btn-outline-primary">수정</a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if list_type == 'equipment' %}4{% else %}3{% endif %}" class="py-4 text-center text-muted">등록된 항목이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

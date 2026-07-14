@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>시약 관리 시스템 - 코드 요약</title>
+<style>
+  body { font-family: "Malgun Gothic", sans-serif; font-size: 13px; color: #1f2937; margin: 0; padding: 30px 50px; line-height: 1.7; }
+  h1 { font-size: 22px; border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; color: #1e3a8a; }
+  h2 { font-size: 16px; border-left: 4px solid #2563eb; padding-left: 10px; margin-top: 32px; color: #1e3a8a; }
+  h3 { font-size: 14px; color: #374151; margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12px; }
+  th { background: #1e3a8a; color: white; padding: 7px 10px; text-align: left; }
+  td { border: 1px solid #d1d5db; padding: 6px 10px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-family: Consolas, monospace; font-size: 12px; }
+  .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 1px 7px; font-size: 11px; font-weight: bold; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .note { background: #fefce8; border-left: 3px solid #fbbf24; padding: 8px 12px; margin: 8px 0; font-size: 12px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .tree { font-family: Consolas, monospace; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 4px; line-height: 1.8; }
+  @media print {
+    body { padding: 10px 30px; }
+    h2 { page-break-before: auto; }
+  }
+</style>
+</head>
+<body>
+
+<h1>시약 관리 시스템 (Reagent Management System) — 코드 요약</h1>
+<p style="color:#6b7280; font-size:12px;">작성일: 2026-04-13 &nbsp;|&nbsp; GitHub: github.com/parkion-ctrl/Reagent &nbsp;|&nbsp; 버전: Django 6.0.4 / PostgreSQL 18</p>
+
+<!-- ───────────────────────────── 1. 기술 스택 ───────────────────────────── -->
+<h2>1. 기술 스택</h2>
+<table>
+  <tr><th>분류</th><th>기술</th><th>비고</th></tr>
+  <tr><td>백엔드 프레임워크</td><td>Django 6.0.4</td><td>FastAPI에서 전환</td></tr>
+  <tr><td>템플릿 엔진</td><td>Jinja2</td><td>Django 기본 DTL 대신 사용</td></tr>
+  <tr><td>데이터베이스</td><td>PostgreSQL 18</td><td>포트 5432, DB명: reagent</td></tr>
+  <tr><td>DB 드라이버</td><td>psycopg (v3)</td><td>raw 연결 방식 (ORM 미사용)</td></tr>
+  <tr><td>인증</td><td>Django Auth</td><td>User / Group / UserProfile</td></tr>
+  <tr><td>CSS</td><td>Bootstrap 5.3.3 + custom style.css</td><td></td></tr>
+  <tr><td>버전 관리</td><td>Git / GitHub (Private)</td><td>github.com/parkion-ctrl/Reagent</td></tr>
+</table>
+
+<!-- ───────────────────────────── 2. 폴더 구조 ───────────────────────────── -->
+<h2>2. 폴더 구조</h2>
+<div class="tree">
+시약/
+├── app/
+│   ├── core/
+│   │   └── db.py              ← PostgreSQL 연결, 스키마 관리
+│   ├── services/
+│   │   ├── inventory_service.py
+│   │   ├── master_service.py
+│   │   ├── history_service.py
+│   │   ├── transaction_service.py
+│   │   ├── inbound_service.py
+│   │   ├── outbound_service.py
+│   │   └── reagent_history_service.py
+│   └── utils/
+│       └── constants.py       ← PART_MAP, DEPT_SCHEMA_MAP, REAGENT_TYPE_MAP
+├── config/                    ← Django 프로젝트 설정
+│   ├── settings.py
+│   ├── urls.py
+│   └── jinja2.py
+├── lab/                       ← Django 앱
+│   ├── views.py               ← 모든 뷰 함수
+│   ├── models.py              ← UserProfile 모델
+│   ├── urls.py                ← URL 라우팅
+│   ├── middleware.py          ← 부서별 DB 스키마 자동 설정
+│   ├── context_processors.py ← 템플릿 전역 변수
+│   ├── apps.py               ← 서버 시작 시 init_all_schemas() 호출
+│   └── migrations/           ← DB 마이그레이션 (0001~0004)
+├── templates/                 ← Jinja2 HTML 템플릿
+├── static/
+│   └── style.css
+└── manage.py
+</div>
+
+<!-- ───────────────────────────── 3. DB 구조 ───────────────────────────── -->
+<h2>3. 데이터베이스 구조</h2>
+
+<h3>3-1. 부서별 스키마 분리</h3>
+<table>
+  <tr><th>부서</th><th>스키마명</th><th>포함 테이블</th></tr>
+  <tr><td>진단검사의학과</td><td><code>dlab</code></td><td>inventory, transaction_history</td></tr>
+  <tr><td>병리과</td><td><code>path</code></td><td>inventory, transaction_history</td></tr>
+  <tr><td>핵의학과</td><td><code>nm</code></td><td>inventory, transaction_history</td></tr>
+  <tr><td>유해물질</td><td><code>haz</code></td><td>inventory, transaction_history</td></tr>
+</table>
+<div class="note">로그인한 사용자의 부서가 미들웨어에서 자동으로 감지되어 해당 스키마의 <code>search_path</code>가 설정됩니다. 슈퍼유저는 상단 드롭다운으로 부서를 자유롭게 전환할 수 있습니다.</div>
+
+<h3>3-2. inventory 테이블 (시약 마스터 + 재고)</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>id</td><td>INTEGER IDENTITY</td><td>PK</td></tr>
+  <tr><td>hazardous</td><td>TEXT</td><td>유해물질 여부 (Y/N)</td></tr>
+  <tr><td>part</td><td>TEXT</td><td>파트 코드 (HE/TA/BB/ML/IM/CO/PB/ZZ)</td></tr>
+  <tr><td>item_code</td><td>TEXT</td><td>품목코드</td></tr>
+  <tr><td>item_name</td><td>TEXT</td><td>품목명</td></tr>
+  <tr><td>lot_no</td><td>TEXT</td><td>Lot 번호</td></tr>
+  <tr><td>expiry_date</td><td>TEXT</td><td>유효기간 (YYYY-MM-DD)</td></tr>
+  <tr><td>spec / unit</td><td>TEXT</td><td>규격 / 단위</td></tr>
+  <tr><td>reagent_type</td><td>TEXT</td><td>시약구분 (1~5)</td></tr>
+  <tr><td>equipment / vendor</td><td>TEXT</td><td>장비 / 업체</td></tr>
+  <tr><td>safety_stock</td><td>INTEGER</td><td>안전재고</td></tr>
+  <tr><td>current_stock</td><td>INTEGER</td><td>현재고</td></tr>
+  <tr><td>required_qty</td><td>INTEGER</td><td>필요수량 (safety_stock - current_stock)</td></tr>
+  <tr><td>disposed_at</td><td>TEXT</td><td>폐기일 (NULL이면 현용)</td></tr>
+  <tr><td>disposal_reason / disposal_type</td><td>TEXT</td><td>폐기 사유 / 유형</td></tr>
+  <tr><td>opened_at / parallel_at</td><td>TEXT</td><td>개봉일 / 병행검사일</td></tr>
+  <tr><td>base_item_name</td><td>TEXT</td><td>Old/New lot 처리용 원본 품목명</td></tr>
+  <tr><td>lot_status</td><td>TEXT</td><td>NEW / OLD / 빈값</td></tr>
+</table>
+
+<h3>3-3. transaction_history 테이블 (입출고 이력)</h3>
+<table>
+  <tr><th>컬럼</th><th>설명</th></tr>
+  <tr><td>id</td><td>PK</td></tr>
+  <tr><td>inventory_id</td><td>FK → inventory.id</td></tr>
+  <tr><td>tx_type</td><td>IN (입고) / OUT (출고)</td></tr>
+  <tr><td>qty</td><td>수량</td></tr>
+  <tr><td>tx_date</td><td>거래 일자</td></tr>
+  <tr><td>remaining_stock</td><td>처리 후 잔량</td></tr>
+  <tr><td>item_code / item_name / lot_no / part / unit</td><td>거래 시점 스냅샷</td></tr>
+  <tr><td>created_at</td><td>레코드 생성 시각</td></tr>
+</table>
+
+<h3>3-4. Django ORM 테이블 (public 스키마)</h3>
+<table>
+  <tr><th>테이블</th><th>설명</th></tr>
+  <tr><td>auth_user</td><td>Django 기본 사용자</td></tr>
+  <tr><td>auth_group</td><td>그룹 (개발자 / 관리자 / 일반 / 외부 업체)</td></tr>
+  <tr><td>lab_userprofile</td><td>사용자 확장 (employee_no, part, department)</td></tr>
+</table>
+
+<!-- ───────────────────────────── 4. 주요 기능 ───────────────────────────── -->
+<h2>4. 주요 기능 및 URL</h2>
+<table>
+  <tr><th>URL</th><th>기능</th><th>접근 권한</th></tr>
+  <tr><td><code>/inventory/</code></td><td>시약 재고 조회 (만료일 색상 경고 포함)</td><td>로그인</td></tr>
+  <tr><td><code>/master/</code></td><td>시약 마스터 등록/수정/삭제/폐기/엑셀업로드</td><td>로그인</td></tr>
+  <tr><td><code>/inbound/</code></td><td>시약 입고 (수동/엑셀 일괄)</td><td>로그인</td></tr>
+  <tr><td><code>/outbound/</code></td><td>시약 출고 (수동/엑셀 일괄)</td><td>로그인</td></tr>
+  <tr><td><code>/history/</code></td><td>입출고 이력 조회 (기간 필터)</td><td>로그인</td></tr>
+  <tr><td><code>/reagent-history/</code></td><td>시약 이력 조회, Old/New lot 관리</td><td>로그인</td></tr>
+  <tr><td><code>/history-admin/</code></td><td>입출고 이력 수정/삭제</td><td>관리자+</td></tr>
+  <tr><td><code>/admin-panel/</code></td><td>관리자 허브 (통계, 사용자/그룹 관리)</td><td>관리자+</td></tr>
+  <tr><td><code>/admin-users/</code></td><td>사용자 목록/등록/수정/삭제</td><td>관리자+</td></tr>
+  <tr><td><code>/set-dept/</code></td><td>슈퍼유저 부서 전환</td><td>슈퍼유저</td></tr>
+</table>
+
+<!-- ───────────────────────────── 5. 권한 구조 ───────────────────────────── -->
+<h2>5. 권한 구조</h2>
+<table>
+  <tr><th>그룹</th><th>접근 범위</th></tr>
+  <tr><td><span class="badge">개발자</span></td><td>모든 기능 + 부서 전환 드롭다운 (슈퍼유저와 동일)</td></tr>
+  <tr><td><span class="badge">관리자</span></td><td>관리자 페이지 접근 가능 (is_staff 자동 부여)</td></tr>
+  <tr><td><span class="badge badge-green">일반</span></td><td>재고/입출고/이력 조회 및 등록</td></tr>
+  <tr><td><span class="badge badge-gray">외부 업체</span></td><td>제한적 접근 (추후 설정)</td></tr>
+</table>
+<div class="note">비활성 계정(is_active=False) 로그인 시 "비활성화된 계정입니다. 관리자에게 문의하세요." 메시지 표시</div>
+
+<!-- ───────────────────────────── 6. 핵심 파일 설명 ───────────────────────────── -->
+<h2>6. 핵심 파일 설명</h2>
+<table>
+  <tr><th>파일</th><th>역할</th></tr>
+  <tr><td><code>app/core/db.py</code></td><td>psycopg 연결 래퍼. thread-local로 현재 스키마 관리. <code>get_connection()</code> 호출 시 자동으로 해당 부서 스키마의 search_path 적용. <code>init_all_schemas()</code>로 4개 스키마 테이블 자동 생성</td></tr>
+  <tr><td><code>lab/middleware.py</code></td><td>모든 요청에서 로그인 사용자의 부서를 읽어 <code>set_schema()</code> 호출. 슈퍼유저는 세션의 <code>superuser_active_dept</code> 우선 적용, 기본값 진단검사의학과</td></tr>
+  <tr><td><code>lab/context_processors.py</code></td><td>모든 템플릿에 <code>user_department</code>, <code>is_dlab</code>, <code>is_superuser_session</code>, <code>superuser_dept_list</code> 자동 주입</td></tr>
+  <tr><td><code>lab/views.py</code></td><td>모든 뷰 함수. <code>_get_part(request)</code>로 진검 외 부서에서 파트를 ZZ로 강제. 관리자 전용 뷰는 <code>can_access_admin_area()</code>로 보호</td></tr>
+  <tr><td><code>app/services/reagent_history_service.py</code></td><td><code>sync_expired_reagents()</code>: 유효기간 만료 시약 자동 폐기 처리, Old/New lot 상태 동기화. 모든 조회 뷰에서 호출됨</td></tr>
+  <tr><td><code>app/services/history_service.py</code></td><td><code>backfill_remaining_stock()</code>: 이력 페이지 로드 시 잔여 재고 재계산</td></tr>
+  <tr><td><code>app/utils/constants.py</code></td><td>PART_MAP (파트코드↔명칭), REAGENT_TYPE_MAP (1~5↔시약구분), DEPT_SCHEMA_MAP (부서명↔스키마명)</td></tr>
+</table>
+
+<!-- ───────────────────────────── 7. 파트 코드 ───────────────────────────── -->
+<h2>7. 파트 코드 / 시약 구분 코드</h2>
+<table>
+  <tr><th>파트 코드</th><th>명칭</th><th>비고</th></tr>
+  <tr><td>HE</td><td>진단혈액</td><td rowspan="7">진단검사의학과(dlab)에서만 전체 사용</td></tr>
+  <tr><td>TA</td><td>자동화학</td></tr>
+  <tr><td>BB</td><td>혈액은행</td></tr>
+  <tr><td>ML</td><td>임상미생물</td></tr>
+  <tr><td>IM</td><td>진단면역</td></tr>
+  <tr><td>CO</td><td>특수분자</td></tr>
+  <tr><td>PB</td><td>접수채혈</td></tr>
+  <tr><td>ZZ</td><td>기타(공용코드)</td><td>타 부서는 ZZ만 사용</td></tr>
+</table>
+<table style="margin-top:10px;">
+  <tr><th>시약구분 코드</th><th>명칭</th></tr>
+  <tr><td>1</td><td>Reagent</td></tr>
+  <tr><td>2</td><td>Control</td></tr>
+  <tr><td>3</td><td>Calibrator</td></tr>
+  <tr><td>4</td><td>Supply</td></tr>
+  <tr><td>5</td><td>Extra</td></tr>
+</table>
+
+<!-- ───────────────────────────── 8. 실행 방법 ───────────────────────────── -->
+<h2>8. 서버 실행 방법</h2>
+<div class="tree">
+# PostgreSQL 서비스 시작 (Windows, 관리자 CMD)
+net start postgresql-x64-18
+
+# Django 개발 서버 실행
+cd C:\Users\ajou\Desktop\시약
+python manage.py runserver
+
+# 접속
+http://127.0.0.1:8000/inventory/
+</div>
+<div class="note">PostgreSQL은 자동 시작으로 설정되어 있어 재부팅 후 별도 실행 불필요 (sc config postgresql-x64-18 start= auto 적용됨)</div>
+
+<hr style="margin-top:40px; border-color:#e5e7eb;">
+<p style="text-align:center; color:#9ca3af; font-size:11px;">시약 관리 시스템 코드 요약 | 2026-04-13</p>
+
+</body>
+</html>

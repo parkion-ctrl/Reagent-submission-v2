@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# DB
+*.db
+db.sqlite3
+postgres-data/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+!.env.example
+venv/
+
+# Backup
+*.sql
+*.dump
+backups/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude (로컬 설정)
+.claude/
+
+# Django
+staticfiles/
+media/
+
+# Migration cache (선택)
+*.sqlite3-journal

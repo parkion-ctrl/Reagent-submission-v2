@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <div class="page-section-title">약속 관리</div>
+            <p class="page-section-desc mb-0">파트별 입고 묶음 약속을 등록·관리합니다. 입고 페이지에서 약속 버튼으로 일괄 카트에 올릴 수 있습니다.</p>
+        </div>
+        <a href="/preset-admin/new{% if part %}?part={{ part }}{% endif %}" class="btn btn-success">+ 약속 등록</a>
+    </div>
+
+    {% if message %}<div class="alert alert-success py-2">{{ message }}</div>{% endif %}
+    {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+    <form method="get" action="/preset-admin" class="filter-bar mb-3">
+        <div class="filter-item" style="max-width:180px; min-width:180px;">
+            <label class="form-label custom-label">파트</label>
+            <select name="part" class="form-select custom-input" onchange="this.form.submit()">
+                <option value="">전체</option>
+                {% for code, name in part_map.items() %}
+                <option value="{{ code }}" {% if part == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <div class="table-scroll">
+        <table class="table inventory-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>파트</th>
+                    <th>약속명</th>
+                    <th>품목 수</th>
+                    <th>등록일</th>
+                    <th class="text-end">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in presets %}
+                <tr>
+                    <td><span class="part-pill">{{ p.part }}</span></td>
+                    <td class="fw-semibold">{{ p.name }}</td>
+                    <td>{{ p.item_count }}개</td>
+                    <td>{{ p.created_at|string|truncate(10, True, '') }}</td>
+                    <td class="text-end" style="white-space:nowrap;">
+                        <a href="/preset-admin/{{ p.id }}/edit" class="btn btn-sm btn-outline-primary">수정</a>
+                        <form method="post" action="/preset-admin/{{ p.id }}/delete/" class="d-inline"
+                              onsubmit="return confirm('약속 「{{ p.name }}」을 삭제할까요?')">
+                            {{ csrf_input }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="py-4 text-center text-muted">등록된 약속이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

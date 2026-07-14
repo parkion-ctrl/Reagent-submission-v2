@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>autoRe-agent ver 1.0.0</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #f4f6f9;
+      color: #1e293b;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header {
+      background: linear-gradient(135deg, #0d9488, #0369a1);
+      color: #fff;
+      border-radius: 16px;
+      padding: 36px 40px;
+      margin-bottom: 32px;
+    }
+    .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; }
+    .header .version { font-size: 1rem; opacity: 0.85; margin-bottom: 16px; }
+    .header .desc { font-size: 0.95rem; opacity: 0.9; line-height: 1.6; }
+    .badge-date {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.82rem;
+      margin-top: 14px;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #0f172a;
+    }
+    .section-title .icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .icon-teal  { background: #ccfbf1; }
+    .icon-blue  { background: #dbeafe; }
+    .icon-purple{ background: #f3e8ff; }
+    .icon-amber { background: #fef3c7; }
+    .icon-rose  { background: #ffe4e6; }
+    .icon-gray  { background: #f1f5f9; }
+
+    .feature-list { list-style: none; }
+    .feature-list li {
+      padding: 7px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      display: flex;
+      gap: 10px;
+    }
+    .feature-list li:last-child { border-bottom: none; }
+    .feature-list li::before {
+      content: '•';
+      color: #0d9488;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .sub-list { margin-top: 6px; margin-left: 4px; }
+    .sub-list li::before { content: '–'; color: #94a3b8; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 1px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .tag-new    { background: #d1fae5; color: #065f46; }
+    .tag-fix    { background: #fee2e2; color: #991b1b; }
+    .tag-update { background: #dbeafe; color: #1e40af; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
+
+    .stack-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .stack-tag {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      color: #475569;
+    }
+
+    .page-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 4px; }
+    .page-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 2px solid #e2e8f0;
+      color: #475569;
+    }
+    .page-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+    }
+    .page-table tr:last-child td { border-bottom: none; }
+    .url { font-family: monospace; color: #0369a1; font-size: 0.84rem; }
+
+    .footer {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-top: 32px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 헤더 -->
+  <div class="header">
+    <h1>autoRe-agent</h1>
+    <div class="version">ver 1.0.0</div>
+    <div class="desc">
+      병원 검사실 시약 재고 관리 시스템.<br>
+      시약 마스터 등록부터 입출고, 이력 조회, 관리자 재고 수정까지 통합 관리합니다.
+    </div>
+    <div class="badge-date">릴리즈 2026-04-15</div>
+  </div>
+
+  <!-- 기술 스택 -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon icon-gray">⚙️</span>기술 스택
+    </div>
+    <div class="stack-list">
+      <span class="stack-tag">Python 3.x</span>
+      <span class="stack-tag">Django</span>
+      <span class="stack-tag">PostgreSQL</span>
+      <span class="stack-tag">Jinja2 템플릿</span>
+      <span class="stack-tag">Bootstrap 5</span>
+      <span class="stack-tag">openpyxl</span>
+      <span class="stack-tag">psycopg</span>
+    </div>
+    <ul class="feature-list" style="margin-top:16px;">
+      <li>PostgreSQL 다중 스키마 구조 — 부서별 독립 데이터 (dlab, path, nm, haz)</li>
+      <li>Django ORM + 직접 SQL 혼용 (스키마 라우팅 커스텀 레이어)</li>
+      <li>부서(스키마) 전환 시 미들웨어가 search_path 자동 설정</li>
+    </ul>
+  </div>
+
+  <!-- 페이지 구성 -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon icon-blue">📄</span>페이지 구성
+    </div>
+    <table class="page-table">
+      <thead>
+        <tr><th>페이지</th><th>URL</th><th>설명</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>시약 재고</td><td class="url">/inventory/</td><td>현재 재고 현황 조회, 엑셀 export</td></tr>
+        <tr><td>시약 마스터</td><td class="url">/master/</td><td>시약 등록·수정·삭제·폐기, 엑셀 일괄 업로드</td></tr>
+        <tr><td>입고</td><td class="url">/inbound/</td><td>개별 입고 처리, 엑셀 일괄 입고</td></tr>
+        <tr><td>출고</td><td class="url">/outbound/</td><td>개별 출고 처리, 엑셀 일괄 출고</td></tr>
+        <tr><td>입출고 이력 조회</td><td class="url">/history/</td><td>이력 조회·필터·엑셀 export, 무상입고/가출고 처리</td></tr>
+        <tr><td>시약 이력 조회</td><td class="url">/reagent-history/</td><td>시약별 라이프사이클 이력, 개봉일·병행 관리, Old/New Lot</td></tr>
+        <tr><td>청구 내역</td><td class="url">/billing/</td><td>월별 무상입고·가출고 집계, 엑셀 export</td></tr>
+        <tr><td>관리자 허브</td><td class="url">/admin-panel/</td><td>사용자·그룹·파트 관리, 이력 수정, 재고 수정</td></tr>
+        <tr><td>입출고 이력 수정</td><td class="url">/history-admin/</td><td>관리자 전용 이력 수정·삭제 (재고 자동 재계산)</td></tr>
+        <tr><td>재고 수정</td><td class="url">/inventory-admin/</td><td>관리자 전용 현재 재고 직접 수정 (입출고 이력 자동 생성)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid">
+    <!-- 시약 관리 -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon icon-teal">🧪</span>시약 관리
+      </div>
+      <ul class="feature-list">
+        <li>시약 마스터 등록 / 수정 / 삭제 / 폐기</li>
+        <li>엑셀 일괄 업로드 (미리보기 → 확정)</li>
+        <li>유효기간 자동 만료 처리 (sync_expired_reagents)</li>
+        <li>Old / New Lot 구분 관리</li>
+        <li>개봉일·병행 사용일 기록</li>
+        <li>유해화학물질 여부 관리</li>
+      </ul>
+    </div>
+
+    <!-- 입출고 -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon icon-blue">📦</span>입출고
+      </div>
+      <ul class="feature-list">
+        <li>개별 입고 / 출고 처리</li>
+        <li>엑셀 일괄 입고 / 출고 (미리보기 → 확정)</li>
+        <li>가출고(PROV_OUT) — 재고 차감 없이 기록</li>
+        <li>무상입고(FREE_IN) 처리</li>
+        <li>입출고 시 현재 재고·필요 수량 자동 재계산</li>
+        <li>등록자 이름 자동 기록</li>
+      </ul>
+    </div>
+
+    <!-- 이력 조회 -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon icon-purple">📋</span>입출고 이력 조회
+      </div>
+      <ul class="feature-list">
+        <li>구분 필터 (입고 / 출고 / 무상입고 / 가출고) — 테이블 헤더</li>
+        <li>업체 필터 — 테이블 헤더, (공란) 옵션 포함</li>
+        <li>시약 구분 필터 — 테이블 헤더</li>
+        <li>파트 / 기간 / 키워드 필터</li>
+        <li>엑셀 export (현재 필터 조건 유지)</li>
+        <li>무상입고 badge 청록색 표시</li>
+      </ul>
+    </div>
+
+    <!-- 관리자 기능 -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon icon-amber">🛠️</span>관리자 기능
+      </div>
+      <ul class="feature-list">
+        <li>입출고 이력 수정·삭제 → 재고 자동 재계산</li>
+        <li>재고 직접 수정 → 입출고 이력 자동 생성</li>
+        <li>사용자·그룹·파트 관리</li>
+        <li>superuser 기본 파트 필터 전체 적용</li>
+        <li>수정·삭제 후 필터 상태 유지</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 데이터 구조 -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon icon-rose">🗄️</span>주요 데이터 구조
+    </div>
+    <table class="page-table">
+      <thead>
+        <tr><th>테이블</th><th>주요 컬럼</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>inventory</strong></td>
+          <td>part, item_code, item_name, lot_no, expiry_date, current_stock, safety_stock, required_qty, reagent_type, equipment, vendor, hazardous, disposed_at, lot_status</td>
+        </tr>
+        <tr>
+          <td><strong>transaction_history</strong></td>
+          <td>inventory_id, tx_type (IN/OUT), qty, tx_date, billing_type (FREE_IN/PROV_OUT), remaining_stock, item_code, item_name, lot_no, part, unit, created_by, note</td>
+        </tr>
+        <tr>
+          <td><strong>UserProfile</strong></td>
+          <td>user (FK), employee_no, part, department</td>
+        </tr>
+        <tr>
+          <td><strong>Part</strong></td>
+          <td>code, name, schema_name</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 알려진 제한 -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon icon-gray">📌</span>기타 사항
+    </div>
+    <ul class="feature-list">
+      <li>시약 이력 조회의 등록자 사번은 표시하지 않음 (이름만 기록)</li>
+      <li>기존 데이터의 등록자 공란은 fix_created_by.py 스크립트로 일괄 보정 가능 (superuser / 0000000)</li>
+      <li>재고 수정 페이지의 변경값은 저장 버튼 클릭 → 미리보기 확인 → 예/아니오 후 반영</li>
+      <li>가출고(PROV_OUT) 처리 이력은 재고 재계산 시 제외됨</li>
+      <li>유효기간 9999-12-31 은 UI 상 공란으로 표시</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    autoRe-agent ver 1.0.0 &nbsp;|&nbsp; 2026-04-15 &nbsp;|&nbsp; dev branch
+  </div>
+
+</div>
+</body>
+</html>
